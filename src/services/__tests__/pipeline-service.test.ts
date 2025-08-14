@@ -138,7 +138,12 @@ describe('PipelineService', () => {
                 undefined,
                 undefined,
                 undefined,
-                1
+                1,
+                undefined,
+                undefined,
+                undefined,
+                undefined,
+                undefined
             );
         });
 

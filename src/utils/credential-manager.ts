@@ -204,7 +204,7 @@ export class CredentialManager {
         const value = settings[key];
         
         // Check if it's already encrypted
-        if (typeof value === 'object' && value.encrypted) {
+        if (typeof value === 'object' && value !== null && value.encrypted) {
             return false;
         }
         

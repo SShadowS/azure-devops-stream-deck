@@ -85,7 +85,7 @@ describe('StatusDisplayManager', () => {
                 showBuildNumber: false,
                 showDuration: false
             });
-            expect(text).toBe('Succeeded');
+            expect(text).toBe('Success');
         });
 
         it('should format with both icon and text', () => {
@@ -94,7 +94,7 @@ describe('StatusDisplayManager', () => {
                 showBuildNumber: false,
                 showDuration: false
             });
-            expect(text).toBe('✓ Succeeded');
+            expect(text).toBe('Success');
         });
 
         it('should include build number when requested', () => {
@@ -103,7 +103,7 @@ describe('StatusDisplayManager', () => {
                 showBuildNumber: true,
                 showDuration: false
             });
-            expect(text).toBe('Succeeded #123');
+            expect(text).toBe('Success\n123');
         });
 
         it('should include duration when requested', () => {
@@ -112,7 +112,7 @@ describe('StatusDisplayManager', () => {
                 showBuildNumber: false,
                 showDuration: true
             });
-            expect(text).toBe('Succeeded 1m 5s');
+            expect(text).toBe('Success\n1m');
         });
 
         it('should include all options', () => {
@@ -121,7 +121,7 @@ describe('StatusDisplayManager', () => {
                 showBuildNumber: true,
                 showDuration: true
             });
-            expect(text).toBe('✓ Succeeded #123 1m 5s');
+            expect(text).toBe('Success\n123\n1m');
         });
     });
 
