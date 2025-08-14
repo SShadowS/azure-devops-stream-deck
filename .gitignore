@@ -10,10 +10,6 @@ yarn-error.log*
 .env.*.local
 .mcp.json
 
-# Project-specific files
-CLAUDE.md
-PLAN.md
-
 # Stream Deck files
 *.sdPlugin/bin/
 *.sdPlugin/logs/
