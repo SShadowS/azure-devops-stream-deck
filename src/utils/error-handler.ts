@@ -166,7 +166,7 @@ export class ErrorHandler {
 
         // Unknown errors
         return new AzureDevOpsError(
-            error.message || 'Unknown error occurred',
+            error?.message || 'Unknown error occurred',
             ErrorType.UNKNOWN,
             {
                 retryable: false,
@@ -282,6 +282,7 @@ export class ErrorHandler {
      * Error type detection helpers
      */
     private isNetworkError(error: any): boolean {
+        if (!error) return false;
         return (
             error.code === 'ECONNREFUSED' ||
             error.code === 'ENOTFOUND' ||
@@ -293,36 +294,40 @@ export class ErrorHandler {
     }
 
     private isAuthenticationError(error: any): boolean {
-        const statusCode = error.statusCode || error.response?.status;
+        if (!error) return false;
+        const statusCode = error?.statusCode || error?.response?.status;
         return (
             statusCode === 401 ||
             statusCode === 403 ||
-            error.message?.toLowerCase().includes('unauthorized') ||
-            error.message?.toLowerCase().includes('forbidden') ||
-            error.message?.toLowerCase().includes('authentication')
+            error?.message?.toLowerCase().includes('unauthorized') ||
+            error?.message?.toLowerCase().includes('forbidden') ||
+            error?.message?.toLowerCase().includes('authentication')
         );
     }
 
     private isRateLimitError(error: any): boolean {
-        const statusCode = error.statusCode || error.response?.status;
+        if (!error) return false;
+        const statusCode = error?.statusCode || error?.response?.status;
         return (
             statusCode === 429 ||
-            error.message?.toLowerCase().includes('rate limit') ||
-            error.message?.toLowerCase().includes('too many requests')
+            error?.message?.toLowerCase().includes('rate limit') ||
+            error?.message?.toLowerCase().includes('too many requests')
         );
     }
 
     private isApiError(error: any): boolean {
-        const statusCode = error.statusCode || error.response?.status;
+        if (!error) return false;
+        const statusCode = error?.statusCode || error?.response?.status;
         return statusCode >= 400 && statusCode < 600;
     }
 
     private isConfigurationError(error: any): boolean {
+        if (!error) return false;
         return (
-            error.message?.toLowerCase().includes('invalid configuration') ||
-            error.message?.toLowerCase().includes('missing required') ||
-            error.message?.toLowerCase().includes('invalid url') ||
-            error.message?.toLowerCase().includes('invalid project')
+            error?.message?.toLowerCase().includes('invalid configuration') ||
+            error?.message?.toLowerCase().includes('missing required') ||
+            error?.message?.toLowerCase().includes('invalid url') ||
+            error?.message?.toLowerCase().includes('invalid project')
         );
     }
 
