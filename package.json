@@ -1,0 +1,59 @@
+{
+    "name": "azure-devops-stream-deck",
+    "version": "1.0.0",
+    "description": "Stream Deck plugin for displaying Azure DevOps pipeline status and build information",
+    "author": "SShadowS",
+    "license": "MIT",
+    "homepage": "https://github.com/SShadowS/azure-devops-stream-deck#readme",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/SShadowS/azure-devops-stream-deck.git"
+    },
+    "bugs": {
+        "url": "https://github.com/SShadowS/azure-devops-stream-deck/issues"
+    },
+    "keywords": [
+        "stream-deck",
+        "elgato",
+        "azure-devops",
+        "pipeline",
+        "build-status",
+        "ci-cd"
+    ],
+    "scripts": {
+        "build": "rollup -c",
+        "watch": "rollup -c -w --watch.onEnd=\"streamdeck restart com.sshadows.azure-devops-info\"",
+        "test": "jest",
+        "test:watch": "jest --watch",
+        "test:coverage": "jest --coverage"
+    },
+    "type": "module",
+    "devDependencies": {
+        "@elgato/cli": "^1.5.0",
+        "@elgato/eslint-config": "^0.1.0",
+        "@elgato/prettier-config": "^0.2.6",
+        "@rollup/plugin-commonjs": "^28.0.0",
+        "@rollup/plugin-inject": "^5.0.5",
+        "@rollup/plugin-node-resolve": "^15.2.2",
+        "@rollup/plugin-terser": "^0.4.4",
+        "@rollup/plugin-typescript": "^12.1.0",
+        "@testing-library/jest-dom": "^6.6.4",
+        "@tsconfig/node20": "^20.1.2",
+        "@types/jest": "^30.0.0",
+        "@types/node": "~20.15.0",
+        "dotenv": "^17.2.1",
+        "eslint": "^9.33.0",
+        "jest": "^30.0.5",
+        "rollup": "^4.0.2",
+        "rollup-plugin-polyfill-node": "^0.13.0",
+        "ts-jest": "^29.4.1",
+        "tslib": "^2.6.2",
+        "typescript": "^5.2.2"
+    },
+    "dependencies": {
+        "@azure/core-auth": "^1.10.0",
+        "@azure/identity": "^4.11.1",
+        "@elgato/streamdeck": "^1.0.0",
+        "azure-devops-node-api": "^15.1.1"
+    }
+}

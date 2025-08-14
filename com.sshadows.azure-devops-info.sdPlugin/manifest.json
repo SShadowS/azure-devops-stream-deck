@@ -1,0 +1,94 @@
+{
+	"Name": "Azure DevOps Info",
+	"Version": "0.1.0.0",
+	"Author": "SShadowS",
+	"Actions": [
+		{
+			"Name": "Counter",
+			"UUID": "com.sshadows.azure-devops-info.increment",
+			"Icon": "imgs/actions/counter/icon",
+			"Tooltip": "Displays a count, which increments by one on press.",
+			"PropertyInspectorPath": "ui/increment-counter.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/counter/key",
+					"TitleAlignment": "middle"
+				}
+			]
+		},
+		{
+			"Name": "Pipeline Status",
+			"UUID": "com.sshadows.azure-devops-info.pipelinestatus",
+			"Icon": "imgs/actions/pipeline-status/icon",
+			"Tooltip": "Displays the current status of an Azure DevOps pipeline",
+			"PropertyInspectorPath": "ui/pipeline-status.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/pipeline-status/success",
+					"TitleAlignment": "middle",
+					"Name": "Success"
+				},
+				{
+					"Image": "imgs/actions/pipeline-status/failed",
+					"TitleAlignment": "middle",
+					"Name": "Failed"
+				},
+				{
+					"Image": "imgs/actions/pipeline-status/running",
+					"TitleAlignment": "middle",
+					"Name": "Running"
+				},
+				{
+					"Image": "imgs/actions/pipeline-status/partial",
+					"TitleAlignment": "middle",
+					"Name": "Partial"
+				},
+				{
+					"Image": "imgs/actions/pipeline-status/canceled",
+					"TitleAlignment": "middle",
+					"Name": "Canceled"
+				},
+				{
+					"Image": "imgs/actions/pipeline-status/unknown",
+					"TitleAlignment": "middle",
+					"Name": "Unknown"
+				},
+				{
+					"Image": "imgs/actions/pipeline-status/notstarted",
+					"TitleAlignment": "middle",
+					"Name": "Not Started"
+				}
+			]
+		}
+	],
+	"Category": "Azure DevOps Info",
+	"CategoryIcon": "imgs/plugin/category-icon",
+	"CodePath": "bin/plugin.js",
+	"Description": "Shows different information from Azure DevOps",
+	"Icon": "imgs/plugin/marketplace",
+	"SDKVersion": 2,
+	"Software": {
+		"MinimumVersion": "6.5"
+	},
+	"OS": [
+		{
+			"Platform": "mac",
+			"MinimumVersion": "12"
+		},
+		{
+			"Platform": "windows",
+			"MinimumVersion": "10"
+		}
+	],
+	"Nodejs": {
+		"Version": "20",
+		"Debug": "enabled"
+	},
+	"UUID": "com.sshadows.azure-devops-info"
+}

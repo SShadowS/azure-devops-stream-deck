@@ -1,0 +1,328 @@
+/* Stream Deck Pipeline Status Styles */
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 13px;
+    background-color: #2d2d2d;
+    color: #d8d8d8;
+    margin: 0;
+    padding: 8px;
+}
+
+.container {
+    max-width: 100%;
+}
+
+.form-group {
+    margin-bottom: 12px;
+}
+
+label {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: 500;
+    color: #999;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="number"],
+select {
+    width: 100%;
+    padding: 6px 8px;
+    background-color: #3a3a3a;
+    border: 1px solid #4a4a4a;
+    border-radius: 4px;
+    color: #d8d8d8;
+    font-size: 13px;
+    box-sizing: border-box;
+    transition: border-color 0.2s, background-color 0.2s;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="number"]:focus,
+select:focus {
+    outline: none;
+    border-color: #0087ef;
+    background-color: #404040;
+}
+
+input[type="text"]:disabled,
+input[type="password"]:disabled,
+input[type="number"]:disabled,
+select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Range Slider */
+input[type="range"] {
+    width: 100%;
+    height: 22px;
+    background: transparent;
+    -webkit-appearance: none;
+    margin: 8px 0;
+}
+
+input[type="range"]::-webkit-slider-track {
+    width: 100%;
+    height: 4px;
+    background: #3a3a3a;
+    border-radius: 2px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    background: #0087ef;
+    border-radius: 50%;
+    cursor: pointer;
+    margin-top: -6px;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+    background: #0099ff;
+}
+
+.range-value {
+    display: inline-block;
+    margin-left: 8px;
+    min-width: 40px;
+    color: #0087ef;
+    font-weight: 500;
+}
+
+/* Radio Buttons */
+.radio-group {
+    display: flex;
+    gap: 12px;
+    margin-top: 6px;
+}
+
+.radio-item {
+    display: flex;
+    align-items: center;
+}
+
+input[type="radio"] {
+    margin-right: 6px;
+    cursor: pointer;
+}
+
+.radio-item label {
+    margin: 0;
+    text-transform: none;
+    letter-spacing: normal;
+    font-size: 13px;
+    color: #d8d8d8;
+    cursor: pointer;
+}
+
+/* Buttons */
+button {
+    padding: 8px 16px;
+    background-color: #0087ef;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+button:hover {
+    background-color: #0099ff;
+}
+
+button:active {
+    background-color: #0075d0;
+}
+
+button:disabled {
+    background-color: #555;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+button.secondary {
+    background-color: #4a4a4a;
+}
+
+button.secondary:hover {
+    background-color: #555;
+}
+
+/* Status Messages */
+.status-message {
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-top: 8px;
+    font-size: 12px;
+    display: none;
+}
+
+.status-message.show {
+    display: block;
+}
+
+.status-message.success {
+    background-color: rgba(40, 167, 69, 0.2);
+    border: 1px solid #28a745;
+    color: #5cb85c;
+}
+
+.status-message.error {
+    background-color: rgba(220, 53, 69, 0.2);
+    border: 1px solid #dc3545;
+    color: #d9534f;
+}
+
+.status-message.info {
+    background-color: rgba(0, 123, 255, 0.2);
+    border: 1px solid #007bff;
+    color: #5bc0de;
+}
+
+.status-message.warning {
+    background-color: rgba(255, 193, 7, 0.2);
+    border: 1px solid #ffc107;
+    color: #f0ad4e;
+}
+
+/* Loading Spinner */
+.spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(0, 135, 239, 0.3);
+    border-top-color: #0087ef;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-left: 8px;
+    vertical-align: middle;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Help Text */
+.help-text {
+    font-size: 11px;
+    color: #888;
+    margin-top: 4px;
+    line-height: 1.4;
+}
+
+.help-text a {
+    color: #0087ef;
+    text-decoration: none;
+}
+
+.help-text a:hover {
+    text-decoration: underline;
+}
+
+/* Divider */
+hr {
+    border: none;
+    border-top: 1px solid #4a4a4a;
+    margin: 16px 0;
+}
+
+/* Connection Test Section */
+.connection-test {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #4a4a4a;
+}
+
+.test-button-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* Validation Feedback */
+input.invalid {
+    border-color: #dc3545;
+}
+
+input.valid {
+    border-color: #28a745;
+}
+
+.validation-message {
+    font-size: 11px;
+    margin-top: 4px;
+}
+
+.validation-message.error {
+    color: #dc3545;
+}
+
+.validation-message.success {
+    color: #28a745;
+}
+
+/* Collapsible Sections */
+.collapsible {
+    margin-bottom: 12px;
+}
+
+.collapsible-header {
+    background-color: #3a3a3a;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.collapsible-header:hover {
+    background-color: #404040;
+}
+
+.collapsible-arrow {
+    transition: transform 0.2s;
+}
+
+.collapsible.expanded .collapsible-arrow {
+    transform: rotate(90deg);
+}
+
+.collapsible-content {
+    display: none;
+    padding: 12px;
+    background-color: #333;
+    border-radius: 0 0 4px 4px;
+    margin-top: -4px;
+}
+
+.collapsible.expanded .collapsible-content {
+    display: block;
+}
+
+/* Responsive adjustments for smaller property inspector */
+@media (max-width: 400px) {
+    body {
+        padding: 6px;
+    }
+    
+    .form-group {
+        margin-bottom: 10px;
+    }
+    
+    button {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+}
