@@ -259,4 +259,171 @@ describe('ActionStateManager', () => {
             expect(state.lastError).toBeDefined();
         });
     });
+
+    describe('Rotation Index', () => {
+        it('should get rotation index', () => {
+            const actionId = 'test-action';
+            
+            // Initial index should be 0
+            expect(manager.getRotationIndex(actionId)).toBe(0);
+        });
+
+        it('should increment rotation index with wrapping', () => {
+            const actionId = 'test-action';
+            const maxIndex = 3;
+            
+            expect(manager.incrementRotationIndex(actionId, maxIndex)).toBe(1);
+            expect(manager.incrementRotationIndex(actionId, maxIndex)).toBe(2);
+            expect(manager.incrementRotationIndex(actionId, maxIndex)).toBe(0); // Wraps at maxIndex
+            expect(manager.incrementRotationIndex(actionId, maxIndex)).toBe(1);
+            expect(manager.incrementRotationIndex(actionId, maxIndex)).toBe(2);
+        });
+
+        it('should maintain separate rotation indices for different actions', () => {
+            const action1 = 'action-1';
+            const action2 = 'action-2';
+            
+            manager.incrementRotationIndex(action1, 5);
+            manager.incrementRotationIndex(action1, 5);
+            manager.incrementRotationIndex(action2, 5);
+            
+            expect(manager.getRotationIndex(action1)).toBe(2);
+            expect(manager.getRotationIndex(action2)).toBe(1);
+        });
+    });
+
+    describe('State Existence', () => {
+        it('should check if state exists', () => {
+            const actionId = 'test-action';
+            
+            // Initially no state
+            expect(manager.hasState(actionId)).toBe(false);
+            
+            // After accessing state, it exists
+            manager.getState(actionId);
+            expect(manager.hasState(actionId)).toBe(true);
+        });
+
+        it('should report state exists after any operation', () => {
+            const actionId = 'test-action';
+            
+            manager.setLastStatus(actionId, PipelineStatus.Running);
+            expect(manager.hasState(actionId)).toBe(true);
+        });
+
+        it('should report no state after clearing', () => {
+            const actionId = 'test-action';
+            
+            manager.setLastStatus(actionId, PipelineStatus.Running);
+            manager.clearState(actionId);
+            
+            // After clearing, hasState should return false
+            expect(manager.hasState(actionId)).toBe(false);
+        });
+    });
+
+    describe('Statistics', () => {
+        it('should get statistics about active states', () => {
+            // Initially no states
+            let stats = manager.getStats();
+            expect(stats.activeStates).toBe(0);
+            expect(stats.message).toContain('Managing 0 action states');
+            
+            // Add some states
+            manager.getState('action-1');
+            manager.getState('action-2');
+            manager.setLastStatus('action-3', PipelineStatus.Running);
+            
+            stats = manager.getStats();
+            expect(stats.activeStates).toBe(3);
+            expect(stats.message).toContain('Managing 3 action states');
+        });
+
+        it('should update stats after clearing states', () => {
+            manager.getState('action-1');
+            manager.getState('action-2');
+            
+            let stats = manager.getStats();
+            expect(stats.activeStates).toBe(2);
+            
+            manager.clearState('action-1');
+            
+            stats = manager.getStats();
+            expect(stats.activeStates).toBe(1);
+        });
+    });
+
+    describe('Last Status Management', () => {
+        it('should get and set last status', () => {
+            const actionId = 'test-action';
+            
+            // Initially undefined
+            expect(manager.getLastStatus(actionId)).toBeUndefined();
+            
+            // Set and retrieve status
+            manager.setLastStatus(actionId, PipelineStatus.Failed);
+            expect(manager.getLastStatus(actionId)).toBe(PipelineStatus.Failed);
+        });
+
+        it('should handle PR array status', () => {
+            const actionId = 'test-action';
+            const prStatus = [
+                { id: 1, title: 'PR 1' },
+                { id: 2, title: 'PR 2' }
+            ];
+            
+            manager.setLastStatus(actionId, prStatus as any);
+            expect(manager.getLastStatus(actionId)).toEqual(prStatus);
+        });
+    });
+
+    describe('Complex State Updates', () => {
+        it('should handle multiple simultaneous updates', () => {
+            const actionId = 'test-action';
+            const now = new Date();
+            const error = new Error('Test error');
+            
+            manager.updateState(actionId, {
+                lastUpdate: now,
+                lastError: error,
+                connectionAttempts: 5,
+                rotationIndex: 2
+            });
+            
+            const state = manager.getState(actionId);
+            expect(state.lastUpdate).toEqual(now);
+            expect(state.lastError).toBe(error);
+            expect(state.connectionAttempts).toBe(5);
+            expect(state.rotationIndex).toBe(2);
+        });
+
+        it('should preserve existing state when updating partial fields', () => {
+            const actionId = 'test-action';
+            
+            manager.setLastStatus(actionId, PipelineStatus.Running);
+            manager.updateState(actionId, { connectionAttempts: 3 });
+            manager.updateState(actionId, { lastError: new Error('error') });
+            
+            const state = manager.getState(actionId);
+            expect(state.lastStatus).toBe(PipelineStatus.Running);
+            expect(state.connectionAttempts).toBe(3);
+            expect(state.lastError?.message).toBe('error');
+        });
+    });
+
+    describe('Action ID with Object Keys', () => {
+        it('should handle action objects with id property', () => {
+            const action = { id: 'object-action', otherProp: 'value' };
+            
+            manager.setLastStatus(action, PipelineStatus.Succeeded);
+            expect(manager.getState(action).lastStatus).toBe(PipelineStatus.Succeeded);
+        });
+
+        it('should use toString for objects without id', () => {
+            const action = { toString: () => 'custom-string' };
+            
+            manager.setLastStatus(action, PipelineStatus.Running);
+            expect(manager.getState(action).lastStatus).toBe(PipelineStatus.Running);
+        });
+    });
 });

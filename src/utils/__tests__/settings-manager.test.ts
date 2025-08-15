@@ -338,4 +338,294 @@ describe('SettingsManager', () => {
         });
     });
 
+    describe('Apply Defaults', () => {
+        it('should apply default values to pipeline settings', () => {
+            const settings: Partial<PipelineStatusSettings> = {
+                organizationUrl: 'https://dev.azure.com/test',
+                projectName: 'TestProject',
+                pipelineId: 123,
+                personalAccessToken: 'token'
+            };
+
+            const withDefaults = manager.applyPipelineDefaults(settings as PipelineStatusSettings);
+            
+            expect(withDefaults.refreshInterval).toBe(30);
+            expect(withDefaults.displayFormat).toBe('both');
+            expect(withDefaults.showBuildNumber).toBe(true);
+            expect(withDefaults.showDuration).toBe(false); // Default is false
+            expect(withDefaults.branchName).toBe('');
+        });
+
+        it('should apply default values to PR settings', () => {
+            const settings: Partial<PullRequestSettings> = {
+                organizationUrl: 'https://dev.azure.com/test',
+                projectName: 'TestProject',
+                repositoryId: 'repo-123',
+                personalAccessToken: 'token'
+            };
+
+            const withDefaults = manager.applyPRDefaults(settings as PullRequestSettings);
+            
+            expect(withDefaults.statusFilter).toBe('active');
+            expect(withDefaults.creatorFilter).toBe('anyone');
+            expect(withDefaults.reviewerFilter).toBe('anyone');
+            expect(withDefaults.maxAge).toBe(7);
+            expect(withDefaults.refreshInterval).toBe(30); // Default is 30 for PR
+            expect(withDefaults.displayFormat).toBe('count');
+            expect(withDefaults.alertThreshold).toBe(10); // Default is 10"
+            expect(withDefaults.showMergeConflicts).toBe(true);
+        });
+
+        it('should preserve existing values when applying defaults', () => {
+            const settings: PipelineStatusSettings = {
+                organizationUrl: 'https://dev.azure.com/test',
+                projectName: 'TestProject',
+                pipelineId: 123,
+                personalAccessToken: 'token',
+                refreshInterval: 60,
+                displayFormat: 'icon'
+            };
+
+            const withDefaults = manager.applyPipelineDefaults(settings);
+            
+            expect(withDefaults.refreshInterval).toBe(60);
+            expect(withDefaults.displayFormat).toBe('icon');
+        });
+    });
+
+    describe('Export Settings', () => {
+        it('should export settings as JSON string', () => {
+            const settings: PipelineStatusSettings = {
+                organizationUrl: 'https://dev.azure.com/test',
+                projectName: 'TestProject',
+                pipelineId: 123,
+                personalAccessToken: 'token',
+                branchName: 'main'
+            };
+
+            const exported = manager.exportSettings(settings);
+            const parsed = JSON.parse(exported);
+            
+            expect(parsed.organizationUrl).toBe('https://dev.azure.com/test');
+            expect(parsed.projectName).toBe('TestProject');
+            expect(parsed.pipelineId).toBe(123);
+            expect(parsed.personalAccessToken).toBe('[REDACTED]');
+        });
+    });
+
+    describe('Diff Settings', () => {
+        it('should identify differences between settings', () => {
+            const oldSettings: PipelineStatusSettings = {
+                organizationUrl: 'https://dev.azure.com/test',
+                projectName: 'TestProject',
+                pipelineId: 123,
+                personalAccessToken: 'token1',
+                branchName: 'main'
+            };
+
+            const newSettings: PipelineStatusSettings = {
+                organizationUrl: 'https://dev.azure.com/test',
+                projectName: 'TestProject2', // Changed
+                pipelineId: 456, // Changed
+                personalAccessToken: 'token2', // Changed
+                branchName: 'main'
+            };
+
+            const diff = manager.diffSettings(oldSettings, newSettings);
+            
+            expect(diff).toEqual({
+                projectName: { old: 'TestProject', new: 'TestProject2' },
+                pipelineId: { old: 123, new: 456 },
+                personalAccessToken: { old: '***', new: '***' } // Redacted as ***
+            });
+        });
+
+        it('should handle settings with different keys', () => {
+            const oldSettings = {
+                organizationUrl: 'https://dev.azure.com/test',
+                projectName: 'TestProject',
+                extraField: 'value'
+            };
+
+            const newSettings = {
+                organizationUrl: 'https://dev.azure.com/test',
+                projectName: 'TestProject',
+                newField: 'value'
+            };
+
+            const diff = manager.diffSettings(oldSettings, newSettings);
+            
+            expect(diff).toEqual({
+                extraField: { old: 'value', new: undefined },
+                newField: { old: undefined, new: 'value' }
+            });
+        });
+    });
+
+    describe('Settings Summary', () => {
+        it('should generate summary for pipeline settings', () => {
+            const settings: PipelineStatusSettings = {
+                organizationUrl: 'https://dev.azure.com/myorg',
+                projectName: 'MyProject',
+                pipelineId: 123,
+                personalAccessToken: 'token'
+            };
+
+            const summary = manager.getSettingsSummary(settings);
+            
+            // Summary format is "Org: <org> | Project: <project> | Pipeline: <id>"
+            expect(summary).toContain('Org: dev.azure.com');
+            expect(summary).toContain('Project: MyProject');
+            expect(summary).toContain('Pipeline: 123');
+        });
+
+        it('should generate summary for PR settings', () => {
+            const settings: PullRequestSettings = {
+                organizationUrl: 'https://dev.azure.com/myorg',
+                projectName: 'MyProject',
+                repositoryId: 'repo-123',
+                personalAccessToken: 'token'
+            };
+
+            const summary = manager.getSettingsSummary(settings);
+            
+            // Summary format is "Org: <org> | Project: <project> | Repo: <id>"
+            expect(summary).toContain('Org: dev.azure.com');
+            expect(summary).toContain('Project: MyProject');
+            expect(summary).toContain('Repo: repo-123');
+        });
+
+        it('should handle missing fields in summary', () => {
+            const settings = {};
+
+            const summary = manager.getSettingsSummary(settings);
+            
+            // getSettingsSummary returns empty string for empty settings
+            expect(summary).toBe('');
+        });
+    });
+
+    describe('Branch Name Validation', () => {
+        it('should validate branch names', () => {
+            const validBranches = [
+                'main',
+                'develop',
+                'feature/new-feature',
+                'release-1.0',
+                'hotfix_urgent'
+            ];
+
+            for (const branch of validBranches) {
+                const settings: PipelineStatusSettings = {
+                    organizationUrl: 'https://dev.azure.com/test',
+                    projectName: 'TestProject',
+                    pipelineId: 123,
+                    personalAccessToken: 'token',
+                    branchName: branch
+                };
+
+                const result = manager.validatePipelineSettings(settings);
+                expect(result.errors).not.toContain(expect.stringContaining('Invalid branch name'));
+            }
+        });
+
+        it('should accept refs/heads/ prefix', () => {
+            const settings: PipelineStatusSettings = {
+                organizationUrl: 'https://dev.azure.com/test',
+                projectName: 'TestProject',
+                pipelineId: 123,
+                personalAccessToken: 'token',
+                branchName: 'refs/heads/main'
+            };
+
+            const result = manager.validatePipelineSettings(settings);
+            expect(result.isValid).toBe(true);
+        });
+
+        it('should warn about invalid branch names', () => {
+            const invalidBranches = [
+                'branch with spaces',
+                'branch@special',
+                'branch#hash',
+                'branch$money'
+            ];
+
+            for (const branch of invalidBranches) {
+                const settings: PipelineStatusSettings = {
+                    organizationUrl: 'https://dev.azure.com/test',
+                    projectName: 'TestProject',
+                    pipelineId: 123,
+                    personalAccessToken: 'token',
+                    branchName: branch
+                };
+
+                const result = manager.validatePipelineSettings(settings);
+                // Branch validation produces warnings, not errors
+                expect(result.warnings).toContain('Branch name format may be incorrect');
+            }
+        });
+    });
+
+    describe('URL Validation', () => {
+        it('should validate Azure DevOps URLs', () => {
+            const validUrls = [
+                'https://dev.azure.com/myorg',
+                'https://myorg.visualstudio.com',
+                'https://dev.azure.com/my-org',
+                'https://dev.azure.com/my_org'
+            ];
+
+            for (const url of validUrls) {
+                const settings: PipelineStatusSettings = {
+                    organizationUrl: url,
+                    projectName: 'TestProject',
+                    pipelineId: 123,
+                    personalAccessToken: 'token'
+                };
+
+                const result = manager.validatePipelineSettings(settings);
+                expect(result.errors).not.toContain(expect.stringContaining('Invalid organization URL'));
+            }
+        });
+
+        it('should reject invalid URLs', () => {
+            const invalidUrls = [
+                'not-a-url',
+                'http://dev.azure.com/myorg', // Not HTTPS
+                'https://github.com/myorg', // Not Azure DevOps
+                'ftp://dev.azure.com/myorg' // Wrong protocol
+            ];
+
+            for (const url of invalidUrls) {
+                const settings: PipelineStatusSettings = {
+                    organizationUrl: url,
+                    projectName: 'TestProject',
+                    pipelineId: 123,
+                    personalAccessToken: 'token'
+                };
+
+                const result = manager.validatePipelineSettings(settings);
+                // The error message is actually different
+                expect(result.errors).toContain('Organization URL is not valid');
+            }
+        });
+    });
+
+    describe('Max Age Validation', () => {
+        it('should warn about high max age values', () => {
+            const settings: PullRequestSettings = {
+                organizationUrl: 'https://dev.azure.com/test',
+                projectName: 'TestProject',
+                repositoryId: 'repo-123',
+                personalAccessToken: 'token',
+                maxAge: 40 // > 30 days
+            };
+
+            const result = manager.validatePRSettings(settings);
+            
+            expect(result.isValid).toBe(true);
+            expect(result.warnings).toContain('Max age is very high (> 30 days), old PRs will be included');
+        });
+    });
+
 });
