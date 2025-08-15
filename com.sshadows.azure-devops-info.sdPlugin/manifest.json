@@ -63,13 +63,13 @@
 				{
 					"Image": "imgs/actions/pr-checks/pr",
 					"TitleAlignment": "middle",
-					"FontSize": "10",
+					"FontSize": 10,
 					"Name": "Normal"
 				},
 				{
 					"Image": "imgs/actions/pr-checks/pr-error",
 					"TitleAlignment": "middle",
-					"FontSize": "10",
+					"FontSize": 10,
 					"Name": "Error"
 				}
 			]
