@@ -163,24 +163,66 @@ export class SettingsManager {
      * Migrates settings from old format to current format.
      */
     migrate<T extends CommonSettings>(settings: any): T {
-        const migrated = migrateSettings<T>(settings, settings._version);
+        if (!settings) {
+            return {} as T;
+        }
         
-        // Add version to migrated settings
-        (migrated as any)._version = SETTINGS_VERSION;
+        // Check if any old field names need migration
+        const hasOldFields = 'orgUrl' in settings || 
+                            'project' in settings || 
+                            'pat' in settings;
+        
+        // If no old fields and settings are already valid, return as-is
+        if (!hasOldFields) {
+            return settings as T;
+        }
+        
+        // Create a copy to avoid mutating the original
+        const migrated = { ...settings };
+        
+        // Migrate old field names to new format
+        if ('orgUrl' in migrated && !migrated.organizationUrl) {
+            migrated.organizationUrl = migrated.orgUrl;
+            delete migrated.orgUrl;
+        }
+        
+        if ('project' in migrated && !migrated.projectName) {
+            migrated.projectName = migrated.project;
+            delete migrated.project;
+        }
+        
+        if ('pat' in migrated && !migrated.personalAccessToken) {
+            migrated.personalAccessToken = migrated.pat;
+            delete migrated.pat;
+        }
+        
+        // Only add version if we actually migrated old fields
+        if (hasOldFields) {
+            migrated._version = SETTINGS_VERSION;
+        }
         
         this.logger.debug('Settings migrated', {
             fromVersion: settings._version || 0,
-            toVersion: SETTINGS_VERSION
+            toVersion: hasOldFields ? SETTINGS_VERSION : settings._version,
+            wasMigrated: hasOldFields
         });
         
-        return migrated;
+        return migrated as T;
     }
 
     /**
      * Sanitizes settings for logging (removes sensitive data).
      */
     sanitize<T extends CommonSettings>(settings: T): Partial<T> {
-        return sanitizeSettings(settings);
+        if (!settings) {
+            return {};
+        }
+        
+        const sanitized = { ...settings };
+        if ('personalAccessToken' in sanitized) {
+            (sanitized as any).personalAccessToken = sanitized.personalAccessToken ? '[REDACTED]' : undefined;
+        }
+        return sanitized;
     }
 
     /**

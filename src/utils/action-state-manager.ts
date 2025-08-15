@@ -21,20 +21,18 @@ export interface ActionState {
  * Uses WeakMap to prevent memory leaks when actions are removed.
  */
 export class ActionStateManager {
-    private states = new WeakMap<any, ActionState>();
+    private states = new Map<string, ActionState>();
     private logger = streamDeck.logger.createScope('ActionStateManager');
 
     /**
      * Gets or creates state for an action.
      */
     getState(actionId: string | any): ActionState {
-        // Handle both string IDs and action objects
-        const key = typeof actionId === 'string' ? { id: actionId } : actionId;
+        // Convert to string ID for consistent keying
+        const key = typeof actionId === 'string' ? actionId : actionId.id;
         
         if (!this.states.has(key)) {
-            this.logger.debug('Creating new state', { 
-                actionId: typeof actionId === 'string' ? actionId : actionId.id 
-            });
+            this.logger.debug('Creating new state', { actionId: key });
             
             this.states.set(key, {
                 connectionAttempts: 0,
@@ -52,8 +50,9 @@ export class ActionStateManager {
         const state = this.getState(actionId);
         Object.assign(state, updates);
         
+        const key = typeof actionId === 'string' ? actionId : actionId.id;
         this.logger.debug('State updated', { 
-            actionId: typeof actionId === 'string' ? actionId : actionId.id,
+            actionId: key,
             updates: Object.keys(updates)
         });
     }
@@ -67,15 +66,13 @@ export class ActionStateManager {
         
         if (state.pollingInterval) {
             clearInterval(state.pollingInterval);
-            this.logger.debug('Cleared existing polling interval', { 
-                actionId: typeof actionId === 'string' ? actionId : actionId.id 
-            });
+            const key = typeof actionId === 'string' ? actionId : actionId.id;
+            this.logger.debug('Cleared existing polling interval', { actionId: key });
         }
         
         state.pollingInterval = interval;
-        this.logger.debug('Set new polling interval', { 
-            actionId: typeof actionId === 'string' ? actionId : actionId.id 
-        });
+        const key = typeof actionId === 'string' ? actionId : actionId.id;
+        this.logger.debug('Set new polling interval', { actionId: key });
     }
 
     /**
@@ -88,9 +85,8 @@ export class ActionStateManager {
             clearInterval(state.pollingInterval);
             state.pollingInterval = undefined;
             
-            this.logger.debug('Stopped polling', { 
-                actionId: typeof actionId === 'string' ? actionId : actionId.id 
-            });
+            const key = typeof actionId === 'string' ? actionId : actionId.id;
+            this.logger.debug('Stopped polling', { actionId: key });
         }
     }
 
@@ -101,8 +97,9 @@ export class ActionStateManager {
         const state = this.getState(actionId);
         state.connectionAttempts++;
         
+        const key = typeof actionId === 'string' ? actionId : actionId.id;
         this.logger.debug('Incremented connection attempts', { 
-            actionId: typeof actionId === 'string' ? actionId : actionId.id,
+            actionId: key,
             attempts: state.connectionAttempts
         });
         
@@ -116,9 +113,8 @@ export class ActionStateManager {
         const state = this.getState(actionId);
         state.connectionAttempts = 0;
         
-        this.logger.debug('Reset connection attempts', { 
-            actionId: typeof actionId === 'string' ? actionId : actionId.id 
-        });
+        const key = typeof actionId === 'string' ? actionId : actionId.id;
+        this.logger.debug('Reset connection attempts', { actionId: key });
     }
 
     /**
@@ -136,8 +132,9 @@ export class ActionStateManager {
         state.lastStatus = status;
         state.lastUpdate = new Date();
         
+        const key = typeof actionId === 'string' ? actionId : actionId.id;
         this.logger.debug('Set last status', { 
-            actionId: typeof actionId === 'string' ? actionId : actionId.id,
+            actionId: key,
             statusType: typeof status === 'object' && status !== null && 'status' in status ? 'PipelineStatus' : 'PullRequestSummary'
         });
     }
@@ -163,7 +160,7 @@ export class ActionStateManager {
      * Should be called when an action is removed.
      */
     clearState(actionId: string | any): void {
-        const key = typeof actionId === 'string' ? { id: actionId } : actionId;
+        const key = typeof actionId === 'string' ? actionId : actionId.id;
         const state = this.states.get(key);
         
         if (state) {
@@ -172,12 +169,10 @@ export class ActionStateManager {
                 clearInterval(state.pollingInterval);
             }
             
-            // Remove from WeakMap
+            // Remove from Map
             this.states.delete(key);
             
-            this.logger.info('Cleared state', { 
-                actionId: typeof actionId === 'string' ? actionId : actionId.id 
-            });
+            this.logger.info('Cleared state', { actionId: key });
         }
     }
 
@@ -185,17 +180,17 @@ export class ActionStateManager {
      * Checks if an action has state.
      */
     hasState(actionId: string | any): boolean {
-        const key = typeof actionId === 'string' ? { id: actionId } : actionId;
+        const key = typeof actionId === 'string' ? actionId : actionId.id;
         return this.states.has(key);
     }
 
     /**
      * Gets statistics about managed states.
-     * Note: WeakMap doesn't provide size, so this is estimated.
      */
-    getStats(): { message: string } {
+    getStats(): { activeStates: number; message: string } {
         return {
-            message: 'ActionStateManager is using WeakMap for automatic memory management'
+            activeStates: this.states.size,
+            message: `Managing ${this.states.size} action states`
         };
     }
 }

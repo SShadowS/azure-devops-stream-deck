@@ -63,7 +63,7 @@ describe('ActionStateManager', () => {
             expect(manager.getState(actionId).pollingInterval).toBe(intervalId);
             
             manager.stopPolling(actionId);
-            expect(manager.getState(actionId).pollingInterval).toBeNull();
+            expect(manager.getState(actionId).pollingInterval).toBeUndefined();
             
             clearInterval(intervalId);
         });
@@ -90,7 +90,7 @@ describe('ActionStateManager', () => {
             
             // Should not throw
             expect(() => manager.stopPolling(actionId)).not.toThrow();
-            expect(manager.getState(actionId).pollingInterval).toBeNull();
+            expect(manager.getState(actionId).pollingInterval).toBeUndefined();
         });
     });
 
@@ -242,11 +242,11 @@ describe('ActionStateManager', () => {
     });
 
     describe('Thread Safety', () => {
-        it('should handle concurrent operations on same action', () => {
+        it('should handle concurrent operations on same action', async () => {
             const actionId = 'concurrent-test';
             
             // Simulate concurrent operations
-            Promise.all([
+            await Promise.all([
                 Promise.resolve().then(() => manager.incrementConnectionAttempts(actionId)),
                 Promise.resolve().then(() => manager.setLastStatus(actionId, PipelineStatus.Succeeded)),
                 Promise.resolve().then(() => manager.updateState(actionId, { lastError: new Error('error1') }))

@@ -1,22 +1,7 @@
 /**
- * Performance optimization utilities for the Stream Deck plugin.
- * Provides throttling, debouncing, caching, and other performance enhancements.
+ * Mock for performance-optimizer module
  */
 
-import streamDeck from '@elgato/streamdeck';
-
-/**
- * Cache entry with expiration support.
- */
-interface CacheEntry<T> {
-    value: T;
-    expires: number;
-    hits: number;
-}
-
-/**
- * Performance metrics for monitoring.
- */
 export interface PerformanceMetrics {
     cacheHits: number;
     cacheMisses: number;
@@ -26,9 +11,12 @@ export interface PerformanceMetrics {
     averageResponseTime: number;
 }
 
-/**
- * Performance optimizer for Stream Deck plugin operations.
- */
+interface CacheEntry<T> {
+    value: T;
+    expires: number;
+    hits: number;
+}
+
 export class PerformanceOptimizer {
     private cache = new Map<string, CacheEntry<any>>();
     private throttleTimers = new Map<string, NodeJS.Timeout>();
@@ -42,14 +30,8 @@ export class PerformanceOptimizer {
         averageResponseTime: 0
     };
     private responseTimes: number[] = [];
-    private readonly MAX_RESPONSE_TIME_SAMPLES = 100;
-    private readonly MAX_CACHE_SIZE = 100;
-    private logger = streamDeck.logger.createScope('PerformanceOptimizer');
+    private pendingRequests = new Map<string, Promise<any>>();
 
-    /**
-     * Throttle function calls to limit execution frequency.
-     * Ensures function is called at most once per interval.
-     */
     throttle<T extends (...args: any[]) => any>(
         fn: T,
         delay: number,
@@ -73,10 +55,6 @@ export class PerformanceOptimizer {
         };
     }
 
-    /**
-     * Debounce function calls to delay execution until after calls have stopped.
-     * Useful for search inputs or resize events.
-     */
     debounce<T extends (...args: any[]) => any>(
         fn: T,
         delay: number,
@@ -100,48 +78,41 @@ export class PerformanceOptimizer {
         };
     }
 
-    /**
-     * Cache function results with TTL support.
-     */
     async cachedCall<T>(
         key: string,
         fn: () => Promise<T>,
-        ttl: number = 60000 // Default 1 minute
+        ttl: number = 60000
     ): Promise<T> {
         const now = Date.now();
         
-        // Check cache
         const cached = this.cache.get(key);
         if (cached && cached.expires > now) {
             cached.hits++;
             this.metrics.cacheHits++;
-            this.logger.debug('Cache hit', { key, hits: cached.hits });
             return cached.value;
         }
 
-        // Cache miss - execute function
         this.metrics.cacheMisses++;
-        const startTime = performance.now();
+        const startTime = Date.now();
         
         try {
             const value = await fn();
-            const responseTime = performance.now() - startTime;
+            const responseTime = Date.now() - startTime;
             this.recordResponseTime(responseTime);
             
-            // Store in cache
-            this.setCache(key, value, ttl);
+            this.cache.set(key, {
+                value,
+                expires: now + ttl,
+                hits: 0
+            });
+            this.metrics.cacheSize = this.cache.size;
             
             return value;
         } catch (error) {
-            // Don't cache errors
-            this.logger.error('Cached call failed', { key, error });
             throw error;
         }
     }
 
-    /**
-     * Batch multiple operations for efficiency.
-     */
     async batchOperations<T, R>(
         items: T[],
         operation: (batch: T[]) => Promise<R[]>,
@@ -158,23 +129,15 @@ export class PerformanceOptimizer {
         return results;
     }
 
-    /**
-     * Implement request coalescing to prevent duplicate concurrent requests.
-     */
-    private pendingRequests = new Map<string, Promise<any>>();
-    
     async coalesceRequests<T>(
         key: string,
         fn: () => Promise<T>
     ): Promise<T> {
-        // Check if request is already pending
         const pending = this.pendingRequests.get(key);
         if (pending) {
-            this.logger.debug('Coalescing request', { key });
             return pending;
         }
 
-        // Start new request
         const promise = fn().finally(() => {
             this.pendingRequests.delete(key);
         });
@@ -183,9 +146,6 @@ export class PerformanceOptimizer {
         return promise;
     }
 
-    /**
-     * Lazy load data only when needed.
-     */
     createLazyLoader<T>(loader: () => Promise<T>): () => Promise<T> {
         let loaded = false;
         let value: T;
@@ -205,19 +165,12 @@ export class PerformanceOptimizer {
                 loaded = true;
                 loadPromise = null;
                 return result;
-            }).catch(error => {
-                // Reset on error so next call retries
-                loadPromise = null;
-                throw error;
             });
 
             return loadPromise;
         };
     }
 
-    /**
-     * Implement circuit breaker pattern for failing services.
-     */
     createCircuitBreaker<T>(
         fn: () => Promise<T>,
         options: {
@@ -235,132 +188,59 @@ export class PerformanceOptimizer {
         let failures = 0;
         let state: 'closed' | 'open' | 'half-open' = 'closed';
         let nextAttempt = 0;
-        let halfOpenAttempts = 0;
 
         return async () => {
             const now = Date.now();
 
-            // Circuit is open
             if (state === 'open') {
                 if (now < nextAttempt) {
                     throw new Error('Circuit breaker is open');
                 }
                 state = 'half-open';
-                halfOpenAttempts = 0;
-            }
-
-            // Circuit is half-open
-            if (state === 'half-open') {
-                halfOpenAttempts++;
-                if (halfOpenAttempts > halfOpenRequests) {
-                    state = 'open';
-                    nextAttempt = now + resetTimeout;
-                    throw new Error('Circuit breaker is open');
-                }
             }
 
             try {
                 const result = await fn();
-                
-                // Success - reset circuit
-                if (state === 'half-open' || failures > 0) {
-                    failures = 0;
+                if (state === 'half-open') {
                     state = 'closed';
-                    this.logger.info('Circuit breaker reset');
+                    failures = 0;
                 }
-                
                 return result;
             } catch (error) {
                 failures++;
-                
                 if (failures >= failureThreshold) {
                     state = 'open';
                     nextAttempt = now + resetTimeout;
-                    this.logger.warn('Circuit breaker opened', { failures });
                 }
-                
                 throw error;
             }
         };
     }
 
-    /**
-     * Set cache entry with size management.
-     */
-    private setCache<T>(key: string, value: T, ttl: number): void {
-        // Implement LRU eviction if cache is too large
-        if (this.cache.size >= this.MAX_CACHE_SIZE) {
-            // Find least recently used entry
-            let lruKey: string | null = null;
-            let minHits = Infinity;
-            
-            for (const [k, entry] of this.cache.entries()) {
-                if (entry.hits < minHits) {
-                    minHits = entry.hits;
-                    lruKey = k;
-                }
-            }
-            
-            if (lruKey) {
-                this.cache.delete(lruKey);
-                this.logger.debug('Evicted cache entry', { key: lruKey });
+    cleanupCache(): void {
+        const now = Date.now();
+        for (const [key, entry] of this.cache) {
+            if (entry.expires <= now) {
+                this.cache.delete(key);
             }
         }
-
-        this.cache.set(key, {
-            value,
-            expires: Date.now() + ttl,
-            hits: 0
-        });
-        
         this.metrics.cacheSize = this.cache.size;
     }
 
-    /**
-     * Clear expired cache entries.
-     */
-    cleanupCache(): void {
-        const now = Date.now();
-        let removed = 0;
-        
-        for (const [key, entry] of this.cache.entries()) {
-            if (entry.expires <= now) {
-                this.cache.delete(key);
-                removed++;
-            }
-        }
-        
-        if (removed > 0) {
-            this.logger.debug('Cleaned up cache', { removed });
-            this.metrics.cacheSize = this.cache.size;
-        }
-    }
-
-    /**
-     * Record response time for metrics.
-     */
     private recordResponseTime(time: number): void {
         this.responseTimes.push(time);
-        
-        if (this.responseTimes.length > this.MAX_RESPONSE_TIME_SAMPLES) {
+        if (this.responseTimes.length > 100) {
             this.responseTimes.shift();
         }
         
-        // Update average
         const sum = this.responseTimes.reduce((a, b) => a + b, 0);
         this.metrics.averageResponseTime = sum / this.responseTimes.length;
     }
 
-    /**
-     * Get current performance metrics.
-     */
     getMetrics(): PerformanceMetrics {
         return { ...this.metrics };
     }
 
-    /**
-     * Reset all performance metrics.
-     */
     resetMetrics(): void {
         this.metrics = {
             cacheHits: 0,
@@ -373,26 +253,18 @@ export class PerformanceOptimizer {
         this.responseTimes = [];
     }
 
-    /**
-     * Clear all caches and timers.
-     */
     cleanup(): void {
-        this.cache.clear();
-        
         for (const timer of this.throttleTimers.values()) {
             clearTimeout(timer);
         }
-        this.throttleTimers.clear();
-        
         for (const timer of this.debounceTimers.values()) {
             clearTimeout(timer);
         }
+        this.throttleTimers.clear();
         this.debounceTimers.clear();
-        
+        this.cache.clear();
         this.pendingRequests.clear();
-        this.resetMetrics();
     }
 }
 
-// Create singleton instance
 export const performanceOptimizer = new PerformanceOptimizer();

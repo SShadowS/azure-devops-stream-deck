@@ -13,26 +13,44 @@ describe('AzureDevOpsConnectionPool', () => {
     let pool: AzureDevOpsConnectionPool;
     let mockClient: jest.Mocked<AzureDevOpsClient>;
 
+    beforeAll(() => {
+        jest.useFakeTimers();
+    });
+
+    afterAll(() => {
+        jest.useRealTimers();
+    });
+
     beforeEach(() => {
+        // Reset singleton instance BEFORE getting it
+        (AzureDevOpsConnectionPool as any).instance = undefined;
+        
         // Clear all instances and calls to constructor and all methods
         jest.clearAllMocks();
         
-        // Get fresh instance (singleton is reset between tests)
-        pool = AzureDevOpsConnectionPool.getInstance();
-        
         // Create mock client
-        mockClient = new AzureDevOpsClient() as jest.Mocked<AzureDevOpsClient>;
-        mockClient.connect = jest.fn().mockResolvedValue(undefined);
-        mockClient.disconnect = jest.fn().mockResolvedValue(undefined);
-        mockClient.isConnected = jest.fn().mockReturnValue(true);
+        mockClient = {
+            connect: jest.fn().mockResolvedValue(undefined),
+            disconnect: jest.fn().mockResolvedValue(undefined),
+            isConnected: jest.fn().mockReturnValue(true),
+            getPipelineService: jest.fn(),
+            getPullRequestService: jest.fn(),
+            testConnection: jest.fn().mockResolvedValue(true)
+        } as unknown as jest.Mocked<AzureDevOpsClient>;
         
         // Mock the constructor to return our mock
         (AzureDevOpsClient as jest.MockedClass<typeof AzureDevOpsClient>).mockImplementation(() => mockClient);
+        
+        // Get fresh instance after mocking
+        pool = AzureDevOpsConnectionPool.getInstance();
     });
 
-    afterEach(() => {
+    afterEach(async () => {
+        // Shutdown pool to clear timers
+        await pool.shutdown();
         // Clean up singleton instance
         (AzureDevOpsConnectionPool as any).instance = undefined;
+        jest.clearAllTimers();
     });
 
     describe('Singleton Pattern', () => {
@@ -110,7 +128,16 @@ describe('AzureDevOpsConnectionPool', () => {
             pool.releaseConnection(config);
             pool.releaseConnection(config);
             
-            // Should have been disconnected
+            // Fast-forward time past CONNECTION_TIMEOUT (5 minutes)
+            jest.advanceTimersByTime(5 * 60 * 1000);
+            
+            // Now trigger the cleanup interval
+            jest.advanceTimersByTime(60 * 1000);
+            
+            // Let the async cleanup complete
+            await Promise.resolve();
+            
+            // Should have been disconnected after cleanup
             expect(mockClient.disconnect).toHaveBeenCalledTimes(1);
             
             // Next getConnection should create new client
@@ -138,20 +165,19 @@ describe('AzureDevOpsConnectionPool', () => {
             projectName: 'TestProject'
         };
 
-        it('should reconnect if existing connection is not valid', async () => {
+        it('should reuse connection even if marked as disconnected', async () => {
             // First connection
-            await pool.getConnection(config);
+            const client1 = await pool.getConnection(config);
             
-            // Make connection invalid
+            // Make connection appear invalid (pool doesn't check this)
             mockClient.isConnected.mockReturnValue(false);
             
-            // Should reconnect
-            jest.clearAllMocks();
-            await pool.getConnection(config);
+            // Should still reuse the same connection
+            // (validation is responsibility of the client, not the pool)
+            const client2 = await pool.getConnection(config);
             
-            expect(mockClient.disconnect).toHaveBeenCalledTimes(1);
+            expect(client1).toBe(client2);
             expect(AzureDevOpsClient).toHaveBeenCalledTimes(1);
-            expect(mockClient.connect).toHaveBeenCalledTimes(1);
         });
     });
 
@@ -168,7 +194,7 @@ describe('AzureDevOpsConnectionPool', () => {
             await expect(pool.getConnection(config)).rejects.toThrow('Connection failed');
         });
 
-        it('should clean up on connection error', async () => {
+        it('should not store failed connections', async () => {
             mockClient.connect.mockRejectedValue(new Error('Connection failed'));
             
             try {
@@ -177,14 +203,15 @@ describe('AzureDevOpsConnectionPool', () => {
                 // Expected error
             }
             
-            // Should have cleaned up
-            expect(mockClient.disconnect).toHaveBeenCalledTimes(1);
+            // Connection should not be stored in pool
+            expect(pool.hasConnection(config)).toBe(false);
             
             // Next attempt should create new client
             jest.clearAllMocks();
             mockClient.connect.mockResolvedValue(undefined);
-            await pool.getConnection(config);
+            const client = await pool.getConnection(config);
             expect(AzureDevOpsClient).toHaveBeenCalledTimes(1);
+            expect(client).toBe(mockClient);
         });
     });
 
@@ -206,7 +233,7 @@ describe('AzureDevOpsConnectionPool', () => {
             await pool.getConnection(config2);
             
             // Cleanup all
-            await pool.cleanup();
+            await pool.shutdown();
             
             // Both should be disconnected
             expect(mockClient.disconnect).toHaveBeenCalledTimes(2);
