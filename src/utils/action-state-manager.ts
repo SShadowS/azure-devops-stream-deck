@@ -13,6 +13,7 @@ export interface ActionState {
     lastError?: Error;
     isConnecting?: boolean;
     rotationIndex?: number; // For PR status rotation
+    lastSettings?: any; // Store last settings to avoid getSettings() feedback loops
 }
 
 /**

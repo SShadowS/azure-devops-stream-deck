@@ -6,59 +6,6 @@
     <meta charset="utf-8" />
     <link rel="stylesheet" href="css/pipeline-status.css">
     <script src="sdpi-components.js"></script>
-    <script src="js/pi-common.js"></script>
-    <script src="js/pipeline-status-pi.js"></script>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        }
-        
-        .debug-log {
-            width: 100%;
-            height: 200px;
-            font-family: 'Courier New', monospace;
-            font-size: 11px;
-            background: #1a1a1a;
-            color: #00ff00;
-            padding: 10px;
-            border: 1px solid #444;
-            border-radius: 4px;
-            resize: vertical;
-            margin-top: 10px;
-        }
-        
-        .button-group {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-        
-        .status-message {
-            padding: 8px;
-            border-radius: 4px;
-            margin-top: 10px;
-            display: none;
-        }
-        
-        .status-message.success {
-            background: #2ea043;
-            color: white;
-        }
-        
-        .status-message.error {
-            background: #d1242f;
-            color: white;
-        }
-        
-        .status-message.testing {
-            background: #fb8500;
-            color: white;
-        }
-        
-        .status-message.visible {
-            display: block;
-        }
-    </style>
 </head>
 
 <body>
@@ -83,7 +30,7 @@
     </sdpi-item>
     
     <sdpi-item label="Refresh Interval">
-        <sdpi-range setting="refreshInterval" min="10" max="300" step="10" default="30" showlabels>
+        <sdpi-range setting="refreshInterval" min="30" max="300" step="30" default="60" showlabels>
             <span slot="suffix">seconds</span>
         </sdpi-range>
     </sdpi-item>
@@ -104,20 +51,6 @@
         <sdpi-checkbox setting="showDuration" default="false"></sdpi-checkbox>
     </sdpi-item>
     
-    <sdpi-item label="Test Connection">
-        <div class="button-group">
-            <sdpi-button id="testConnection">Test Connection</sdpi-button>
-        </div>
-        <div id="connectionStatus" class="status-message"></div>
-    </sdpi-item>
-    
-    <sdpi-item label="Debug Logs">
-        <div class="button-group">
-            <sdpi-button id="copyLogs">Copy Logs</sdpi-button>
-            <sdpi-button id="clearLogs">Clear Logs</sdpi-button>
-        </div>
-        <textarea id="debugLog" class="debug-log" readonly></textarea>
-    </sdpi-item>
 </body>
 
 </html>

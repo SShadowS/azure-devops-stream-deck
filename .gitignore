@@ -38,6 +38,13 @@ coverage/
 *.lcov
 .nyc_output/
 
+# Logs
+logs/
+com.sshadows.azure-devops-info.sdPlugin/logs/
+
+# Example plugins (reference material)
+streamdeck-plugin-samples/
+
 # Temporary files
 *.tmp
 *.temp

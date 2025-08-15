@@ -54,8 +54,14 @@ export class SettingsManager {
             errors.push('Personal Access Token is required');
         }
 
-        if (!settings.pipelineId || settings.pipelineId <= 0) {
-            errors.push('Pipeline ID is required and must be positive');
+        if (!settings.pipelineId) {
+            errors.push('Pipeline ID is required');
+        } else {
+            // Convert to number and validate
+            const pipelineIdNum = Number(settings.pipelineId);
+            if (isNaN(pipelineIdNum) || !Number.isInteger(pipelineIdNum) || pipelineIdNum <= 0) {
+                errors.push('Pipeline ID must be a positive integer');
+            }
         }
 
         // Check optional fields

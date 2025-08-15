@@ -188,12 +188,22 @@ npm run watch
 **Solution**: Added a polyfill in rollup.config.mjs to define `__dirname` globally before the code runs.
 
 #### SDPIComponents v4 API Usage
-**Problem**: Property Inspector communication using incorrect API methods like `onConnected()`, `onDidReceiveSettings()`, etc.
-**Solution**: Use correct SDPIComponents v4 API:
-- `streamDeckClient.getSettings()` to get current settings
-- `streamDeckClient.didReceiveSettings = (settings) => {}` to handle settings changes
-- `streamDeckClient.sendToPropertyInspector = (data) => {}` to receive messages from plugin
-- `streamDeckClient.send('sendToPlugin', data)` to send messages to plugin
+**Problem**: Property Inspector communication using incorrect API methods like `onConnected()`, `onDidReceiveSettings()`, etc., or trying to use custom JavaScript event handlers.
+**Solution**: Use pure SDPI Components patterns following official SDK examples:
+- **AVOID custom JavaScript entirely** - use pure SDPI Components markup
+- **Data Sources**: Use `datasource="eventName"` attribute for dynamic dropdowns
+- **Settings**: Use `setting="settingName"` attribute for automatic synchronization
+- **Local Components**: Use local `sdpi-components.js` instead of CDN
+- **No Manual Event Handling**: Let SDPI Components handle all communication automatically
+
+#### Property Inspector Debugging Lessons
+**Critical Lesson**: When Property Inspector dropdowns aren't populating or JavaScript errors occur, the solution is almost always to simplify and follow official SDK examples more closely:
+
+1. **Remove all custom JavaScript** from Property Inspector HTML files
+2. **Use pure SDPI Components markup** with datasource attributes
+3. **Study official examples** in `streamdeck-plugin-samples/data-sources/`
+4. **Get current settings properly** in action's `onSendToPlugin` method using `await ev.action.getSettings()`
+5. **Don't assume `ev.payload.settings` exists** in data source requests - it's often undefined
 
 ## Common Stream Deck Plugin Patterns
 
@@ -213,16 +223,50 @@ Based on the official SDK examples, here are the key patterns and best practices
 - **`onDidReceiveSettings`**: React to Property Inspector setting changes
 - **`onSendToPlugin`**: Handle custom messages from Property Inspector
 
-### 3. Property Inspector Communication
-- **From PI to Plugin**: 
-  - Use `datasource` attribute for dynamic dropdowns
-  - Use `streamDeck.ui.sendToPlugin()` for custom messages
-- **From Plugin to PI**: 
-  - Use `streamDeck.ui.current?.sendToPropertyInspector()` to send data
-- **Settings**: 
-  - Automatically synced via `setting` attribute on SDPI components
-  - Access with `ev.payload.settings` in action methods
-- **Local Components**: Use local `sdpi-components.js` instead of CDN for v4
+### 3. Property Inspector Communication (CRITICAL PATTERNS)
+**IMPORTANT**: Following the official SDK examples is essential for working Property Inspectors.
+
+#### ✅ CORRECT Property Inspector Pattern (Pure SDPI Components)
+```html
+<!-- Example from working PR Checks implementation -->
+<sdpi-select setting="repository" default="all" 
+             datasource="getRepositories" 
+             loading="Fetching repositories..." 
+             placeholder="Please select">
+</sdpi-select>
+```
+
+#### ❌ AVOID Custom JavaScript Event Handling
+```html
+<!-- DON'T DO THIS - causes dispatcher errors -->
+<script>
+streamDeckClient.didReceiveSettings = (settings) => { ... }
+streamDeckClient.onConnected = () => { ... }
+</script>
+```
+
+#### Data Source Communication Flow
+1. **Property Inspector**: Use `datasource="getRepositories"` attribute
+2. **SDPI Components**: Automatically sends `{event: "getRepositories"}` to plugin
+3. **Action's onSendToPlugin**: Handle the event and get current settings:
+   ```typescript
+   override async onSendToPlugin(ev: SendToPluginEvent<JsonValue, Settings>): Promise<void> {
+       if (ev.payload instanceof Object && "event" in ev.payload && ev.payload.event === "getRepositories") {
+           // CRITICAL: Get settings from action, NOT from ev.payload.settings (which is undefined)
+           const currentSettings = await ev.action.getSettings();
+           await this.sendRepositoryList(ev.action, currentSettings);
+       }
+   }
+   ```
+4. **Plugin Response**: Send data back via `streamDeck.ui.current?.sendToPropertyInspector()`
+5. **SDPI Components**: Automatically populates dropdown with returned data
+
+#### Settings Access Patterns
+- **In Property Inspector**: Use `setting="settingName"` attribute for automatic sync
+- **In Action Methods**: 
+  - ✅ Use `ev.payload.settings` for settings events (`onDidReceiveSettings`)
+  - ✅ Use `await ev.action.getSettings()` for data source requests (`onSendToPlugin`)
+  - ❌ NEVER assume `ev.payload.settings` exists in `onSendToPlugin` events
 
 ### 4. Common Implementation Patterns
 - **Settings Management**: 
@@ -243,10 +287,77 @@ Based on the official SDK examples, here are the key patterns and best practices
   - Store interval/timeout references for cleanup
   - Clear timers in `onWillDisappear` to prevent memory leaks
 
-### 5. Best Practices
+### 5. Critical Anti-Patterns and Solutions
+
+#### **NEVER Call `action.getSettings()` in Settings Handlers**
+**❌ WRONG - Creates Infinite Feedback Loop:**
+```typescript
+override async onDidReceiveSettings(ev: DidReceiveSettingsEvent<Settings>): Promise<void> {
+    const oldSettings = await ev.action.getSettings(); // ❌ This triggers another didReceiveSettings!
+    // ... rest of handler
+}
+```
+
+**✅ CORRECT - Store Settings in Local State:**
+```typescript
+private settingsDebounceTimeouts = new Map<string, NodeJS.Timeout>();
+
+override async onDidReceiveSettings(ev: DidReceiveSettingsEvent<Settings>): Promise<void> {
+    // Debounce rapid settings changes
+    const existingTimeout = this.settingsDebounceTimeouts.get(ev.action.id);
+    if (existingTimeout) clearTimeout(existingTimeout);
+    
+    const timeout = setTimeout(async () => {
+        await this.processSettingsChange(ev.action.id, ev.payload.settings);
+        this.settingsDebounceTimeouts.delete(ev.action.id);
+    }, 500);
+    
+    this.settingsDebounceTimeouts.set(ev.action.id, timeout);
+}
+
+private async processSettingsChange(actionId: string, settings: Settings): Promise<void> {
+    // Get old settings from local state, NOT from action.getSettings()
+    const state = this.stateManager.getState(actionId);
+    const oldSettings = state.lastSettings as Settings || {};
+    
+    // Store new settings for future reference
+    state.lastSettings = settings;
+    
+    // Process the settings change...
+}
+```
+
+**Why This Happens**: `action.getSettings()` sends a `getSettings` event to Stream Deck, which responds with `didReceiveSettings`, creating an infinite loop.
+
+**Store Settings On**: 
+- `onWillAppear`: `state.lastSettings = ev.payload.settings`
+- `processSettingsChange`: `state.lastSettings = settings`
+
+#### **Always Debounce Settings Changes**
+Users typing in Property Inspector fields generate rapid `didReceiveSettings` events. Always use debouncing:
+
+```typescript
+// ✅ Debounce with 500ms timeout to prevent rapid-fire processing
+const timeout = setTimeout(async () => {
+    await this.processSettingsChange(actionId, settings);
+}, 500);
+```
+
+#### **Use State Manager for ActionState.lastSettings**
+Add to your ActionState interface:
+```typescript
+export interface ActionState {
+    // ... other properties
+    lastSettings?: any; // Store last settings to avoid getSettings() feedback loops
+}
+```
+
+### 6. Best Practices
 - **Type Guards**: Use `isKey()` before key-specific operations
 - **Singleton Pattern**: Share state across multiple action instances
 - **Action References**: Store action instances for batch updates
 - **Resource Cleanup**: Always clean up timers/connections in `onWillDisappear`
 - **Image Handling**: Use Buffer/base64 encoding for dynamic images
 - **Async Operations**: Return promises from lifecycle methods for proper sequencing
+- **Settings Debouncing**: Always debounce `onDidReceiveSettings` to prevent rapid processing
+- **Local State Storage**: Store settings in ActionState instead of calling `action.getSettings()`

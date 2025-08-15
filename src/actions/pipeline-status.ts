@@ -9,9 +9,7 @@ import { SettingsManager } from '../utils/settings-manager';
 import { visualFeedback } from '../utils/visual-feedback';
 import { PipelineStatusSettings } from '../types/settings';
 import { 
-    ConnectionResultMessage, 
-    isTestConnectionMessage,
-    extractMessagePayload 
+    ConnectionResultMessage
 } from '../types/property-inspector';
 
 // PipelineStatusSettings is now imported from '../types/settings'
@@ -27,6 +25,8 @@ export class PipelineStatusAction extends SingletonAction<PipelineStatusSettings
     private pipelineServices = new Map<string, PipelineService>();
     private readonly MAX_CONNECTION_ATTEMPTS = 3;
     private readonly DEFAULT_REFRESH_INTERVAL = 30; // seconds
+    private initializationInProgress = new Set<string>();
+    private settingsDebounceTimeouts = new Map<string, NodeJS.Timeout>();
 
     constructor() {
         super();
@@ -42,6 +42,9 @@ export class PipelineStatusAction extends SingletonAction<PipelineStatusSettings
         
         // Initialize state for this action
         this.stateManager.resetConnectionAttempts(ev.action.id);
+        
+        // Store initial settings in state manager
+        this.stateManager.getState(ev.action.id).lastSettings = ev.payload.settings;
         
         await this.initializeAction(ev.action.id, ev.payload.settings);
     }
@@ -103,191 +106,147 @@ export class PipelineStatusAction extends SingletonAction<PipelineStatusSettings
     override async onDidReceiveSettings(ev: DidReceiveSettingsEvent<PipelineStatusSettings>): Promise<void> {
         this.logger.debug('Settings received', { action: ev.action.id, settings: ev.payload.settings });
         
-        // Stop current polling
-        this.stateManager.stopPolling(ev.action.id);
+        // Clear any existing debounce timeout for this action
+        const existingTimeout = this.settingsDebounceTimeouts.get(ev.action.id);
+        if (existingTimeout) {
+            clearTimeout(existingTimeout);
+            this.logger.debug('Cleared existing settings timeout', { actionId: ev.action.id });
+        }
+        
+        // Debounce settings changes to prevent rapid successive calls
+        const timeout = setTimeout(async () => {
+            try {
+                await this.processSettingsChange(ev.action.id, ev.payload.settings);
+            } catch (error) {
+                this.logger.error('Error processing settings change', error);
+            } finally {
+                // Clean up timeout reference
+                this.settingsDebounceTimeouts.delete(ev.action.id);
+            }
+        }, 500); // 500ms debounce
+        
+        this.settingsDebounceTimeouts.set(ev.action.id, timeout);
+        this.logger.debug('Settings change debounced', { actionId: ev.action.id });
+    }
+
+    private async processSettingsChange(actionId: string, settings: PipelineStatusSettings): Promise<void> {
+        this.logger.debug('Processing settings change', { actionId, settings });
+        
+        // Stop current polling immediately
+        this.stateManager.stopPolling(actionId);
+        
+        // Get action reference
+        const action = streamDeck.actions.getActionById(actionId);
+        if (!action) return;
+        
+        // Use the state manager to track old settings instead of calling action.getSettings()
+        // which triggers another didReceiveSettings event
+        const state = this.stateManager.getState(actionId);
+        const oldSettings = state.lastSettings as PipelineStatusSettings || {};
+        
+        // Validate new settings before doing anything else
+        const validation = this.settingsManager.validatePipelineSettings(settings);
+        if (!validation.isValid) {
+            this.logger.debug('Received invalid settings, stopping all processes', {
+                actionId: actionId,
+                errors: validation.errors
+            });
+            
+            // Clean up any existing connections and services
+            this.pipelineServices.delete(actionId);
+            
+            // Release any existing connection
+            if (this.isConfigured(oldSettings)) {
+                const oldConfig = this.createConfig(oldSettings);
+                this.connectionPool.releaseConnection(oldConfig);
+            }
+            
+            // Show configuration required and exit - don't attempt any connections
+            if (action) {
+                await this.showConfigurationRequired(action);
+            }
+            return;
+        }
         
         // Release old connection if config changed
-        const oldSettings = await ev.action.getSettings();
-        if (this.hasConfigChanged(oldSettings, ev.payload.settings)) {
+        if (this.hasConfigChanged(oldSettings, settings)) {
             if (this.isConfigured(oldSettings)) {
                 const oldConfig = this.createConfig(oldSettings);
                 this.connectionPool.releaseConnection(oldConfig);
             }
         }
         
+        // Store new settings in state manager for future reference
+        this.stateManager.getState(actionId).lastSettings = settings;
+        
         // Reset state and reinitialize
-        this.stateManager.resetConnectionAttempts(ev.action.id);
-        await this.initializeAction(ev.action.id, ev.payload.settings);
+        this.stateManager.resetConnectionAttempts(actionId);
+        await this.initializeAction(actionId, settings);
     }
 
     override async onSendToPlugin(ev: SendToPluginEvent<any, PipelineStatusSettings>): Promise<void> {
-        this.logger.info('Message from Property Inspector', { 
+        this.logger.trace('Pipeline status received message from PI', { 
             actionId: ev.action.id, 
-            payload: ev.payload,
-            payloadKeys: ev.payload ? Object.keys(ev.payload) : [],
-            payloadType: typeof ev.payload 
+            payload: ev.payload
         });
         
-        // Send debug info back to Property Inspector
-        const action = streamDeck.actions.getActionById(ev.action.id);
-        if (action) {
-            streamDeck.ui.current?.sendToPropertyInspector({
-                event: 'debugLog',
-                message: `Plugin received message: ${JSON.stringify(ev.payload)}`,
-                data: {
-                    payload: ev.payload,
-                    keys: ev.payload ? Object.keys(ev.payload) : [],
-                    type: typeof ev.payload
-                }
-            });
-        }
-        
-        // Extract the actual payload from various formats
-        const actualPayload = extractMessagePayload(ev.payload);
-        
-        // Handle test connection request with type safety
-        if (isTestConnectionMessage(actualPayload)) {
-            this.logger.info('Handling testConnection event');
-            await this.handleTestConnection(ev.action.id, actualPayload);
-        } else {
-            this.logger.warn('Unhandled message event', { 
-                event: actualPayload?.event,
-                payload: this.settingsManager.sanitize(actualPayload || {})
-            });
-        }
+        // Currently no data source requests needed for Pipeline Status
+        // All settings are handled automatically by SDPI Components
+        this.logger.debug('No specific message handling needed for Pipeline Status');
     }
 
-    private async handleTestConnection(actionId: string, settings: PipelineStatusSettings): Promise<void> {
-        const action = streamDeck.actions.getActionById(actionId);
-        if (!action) {
-            this.logger.error('Action not found for test connection', { actionId });
-            return;
-        }
-
-        this.logger.info('Starting test connection', { 
-            actionId,
-            hasOrgUrl: !!settings.organizationUrl,
-            hasProject: !!settings.projectName,
-            hasPipelineId: !!settings.pipelineId,
-            hasPAT: !!settings.personalAccessToken
-        });
-
-        try {
-            // Test the connection with provided settings
-            const config: AzureDevOpsConfig = {
-                organizationUrl: settings.organizationUrl!,
-                personalAccessToken: settings.personalAccessToken!,
-                projectName: settings.projectName!
-            };
-
-            this.logger.info('Creating test client with config', { 
-                organizationUrl: config.organizationUrl,
-                projectName: config.projectName
-            });
-
-            // Create a temporary client for testing
-            const testClient = new AzureDevOpsClient();
-            await testClient.connect(config);
-            
-            this.logger.info('Client connected successfully');
-            
-            // Test fetching pipeline info
-            let pipelineInfo = undefined;
-            if (settings.pipelineId) {
-                this.logger.info('Testing pipeline fetch', { pipelineId: settings.pipelineId });
-                const testService = new PipelineService(testClient);
-                pipelineInfo = await testService.getPipelineStatus(settings.pipelineId, settings.branchName);
-                this.logger.info('Pipeline fetched successfully', { 
-                    pipelineName: pipelineInfo.name,
-                    status: pipelineInfo.status 
-                });
-            }
-
-            // Send success response to Property Inspector
-            const successMessage: ConnectionResultMessage = {
-                event: 'connectionResult',
-                success: true,
-                message: pipelineInfo ? 'Connection successful! Pipeline found.' : 'Connection successful!',
-                details: pipelineInfo ? {
-                    pipelineInfo: pipelineInfo
-                } : undefined
-            };
-            streamDeck.ui.current?.sendToPropertyInspector(successMessage);
-
-            this.logger.info('Test connection successful', { actionId });
-        } catch (error: any) {
-            this.logger.error('Test connection failed', { 
-                actionId, 
-                error: error.message,
-                stack: error.stack,
-                statusCode: error.statusCode,
-                response: error.response
-            });
-            
-            // Send error response to Property Inspector
-            let errorMessage = 'Connection failed: ';
-            if (error.message?.includes('401') || error.statusCode === 401) {
-                errorMessage += 'Invalid Personal Access Token';
-            } else if (error.message?.includes('404') || error.statusCode === 404) {
-                errorMessage += 'Pipeline or project not found';
-            } else if (error.message?.includes('ENOTFOUND')) {
-                errorMessage += 'Invalid organization URL';
-            } else if (error.message?.includes('ECONNREFUSED')) {
-                errorMessage += 'Connection refused - check organization URL';
-            } else {
-                errorMessage += error.message || 'Unknown error';
-            }
-
-            const errorResponse: ConnectionResultMessage = {
-                event: 'connectionResult',
-                success: false,
-                message: errorMessage
-            };
-            streamDeck.ui.current?.sendToPropertyInspector(errorResponse);
-        }
-    }
 
     private async initializeAction(actionId: string, settings: PipelineStatusSettings): Promise<void> {
-        const action = streamDeck.actions.getActionById(actionId);
-        if (!action) return;
-
-        if (!this.isConfigured(settings)) {
-            await this.showConfigurationRequired(action);
+        // Prevent multiple simultaneous initializations for the same action
+        if (this.initializationInProgress.has(actionId)) {
+            this.logger.debug('Initialization already in progress, skipping', { actionId });
             return;
         }
-
-        // Show connecting animation
-        await visualFeedback.showConnecting(action, 1, this.MAX_CONNECTION_ATTEMPTS);
-
-        // Use error recovery service for initialization
-        const result = await this.errorRecovery.tryWithRetry(
-            async () => {
-                await this.connectToAzureDevOps(actionId, settings);
-                await this.startPolling(actionId, settings);
-            },
-            {
-                maxAttempts: this.MAX_CONNECTION_ATTEMPTS,
-                shouldRetry: (error) => {
-                    // Don't retry on authentication errors
-                    if (error.message?.includes('401') || error.message?.includes('403')) {
-                        return false;
-                    }
-                    return true;
-                }
-            },
-            (error, attempt, nextDelay) => {
-                this.logger.warn('Retrying initialization', { actionId, attempt, nextDelay });
-                visualFeedback.showConnecting(action, attempt + 1, this.MAX_CONNECTION_ATTEMPTS);
+        
+        this.initializationInProgress.add(actionId);
+        
+        try {
+            const action = streamDeck.actions.getActionById(actionId);
+            if (!action) {
+                this.initializationInProgress.delete(actionId);
+                return;
             }
-        );
 
-        if (!result.success) {
-            this.logger.error('Failed to initialize action after retries', result.error);
-            const errorMessage = this.errorRecovery.formatErrorMessage(result.error!);
-            await visualFeedback.showError(action, errorMessage);
-        } else {
+            // Validate settings first - if invalid, show config message and exit immediately
+            const validation = this.settingsManager.validatePipelineSettings(settings);
+            if (!validation.isValid) {
+                this.logger.debug('Pipeline settings validation failed', { 
+                    actionId, 
+                    errors: validation.errors 
+                });
+                await this.showConfigurationRequired(action);
+                // Stop any existing polling to prevent loops
+                this.stateManager.stopPolling(actionId);
+                this.initializationInProgress.delete(actionId);
+                return;
+            }
+
+            // Show connecting animation
+            await visualFeedback.showConnecting(action, 1, this.MAX_CONNECTION_ATTEMPTS);
+
+            // Connect to Azure DevOps first
+            await this.connectToAzureDevOps(actionId, settings);
+            
+            // Start polling only after successful connection
+            await this.startPolling(actionId, settings);
+            
             // Clear loading animation on success
             visualFeedback.stopAnimation(actionId);
+            
+        } catch (error) {
+            this.logger.error('Failed to initialize Pipeline Status action', error);
+            const action = streamDeck.actions.getActionById(actionId);
+            if (action) {
+                await visualFeedback.showError(action, 'Connection Failed');
+            }
+        } finally {
+            // Always remove from initialization set when done
+            this.initializationInProgress.delete(actionId);
         }
     }
 
@@ -305,6 +264,14 @@ export class PipelineStatusAction extends SingletonAction<PipelineStatusSettings
     }
 
     private async startPolling(actionId: string, settings: PipelineStatusSettings): Promise<void> {
+        // Ensure any existing polling is stopped first
+        this.stateManager.stopPolling(actionId);
+        
+        this.logger.debug('Starting polling for pipeline status', { 
+            actionId, 
+            interval: settings.refreshInterval || this.DEFAULT_REFRESH_INTERVAL 
+        });
+        
         // Initial update
         await this.updateStatus(actionId, settings);
         
@@ -329,12 +296,21 @@ export class PipelineStatusAction extends SingletonAction<PipelineStatusSettings
         const action = streamDeck.actions.getActionById(actionId);
         const pipelineService = this.pipelineServices.get(actionId);
         
-        if (!action || !pipelineService || !settings.pipelineId) {
+        // Validate settings before attempting any API calls
+        const validation = this.settingsManager.validatePipelineSettings(settings);
+        if (!action || !pipelineService || !validation.isValid) {
+            this.logger.debug('Skipping status update due to invalid settings or missing components', {
+                actionId,
+                hasAction: !!action,
+                hasService: !!pipelineService,
+                isValid: validation.isValid,
+                errors: validation.errors
+            });
             return;
         }
 
         try {
-            const pipelineInfo = await pipelineService.getPipelineStatus(settings.pipelineId, settings.branchName);
+            const pipelineInfo = await pipelineService.getPipelineStatus(settings.pipelineId!, settings.branchName);
             
             // Check if status changed
             const state = this.stateManager.getState(actionId);
