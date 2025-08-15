@@ -1,3 +1,10 @@
+# 1.0.0 (2025-08-15)
+
+
+### Features
+
+* Add automatic semantic versioning and GitHub releases ([ab14a62](https://github.com/SShadowS/azure-devops-stream-deck/commit/ab14a62d9a51f0c05407363349088396b6ae316c))
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
