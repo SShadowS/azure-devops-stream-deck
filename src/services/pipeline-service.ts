@@ -1,6 +1,7 @@
 import { Build, BuildStatus, BuildResult, BuildDefinition } from 'azure-devops-node-api/interfaces/BuildInterfaces';
 import { AzureDevOpsClient } from './azure-devops-client';
 import streamDeck from '@elgato/streamdeck';
+import { performanceOptimizer } from '../utils/performance-optimizer';
 
 export enum PipelineStatus {
     Succeeded = 'succeeded',
@@ -45,91 +46,100 @@ export class PipelineService {
 
     public async getPipelineStatus(pipelineId: number, branchName?: string): Promise<PipelineInfo> {
         const cacheKey = `pipeline-status-${pipelineId}-${branchName || 'all'}`;
-        const cached = this.getFromCache<PipelineInfo>(cacheKey);
         
-        if (cached) {
-            this.logger.debug(`Returning cached pipeline status for ${pipelineId}${branchName ? ` (branch: ${branchName})` : ''}`);
-            return cached;
-        }
-
-        try {
-            const latestBuild = await this.getLatestBuild(pipelineId, branchName);
+        // Use performance optimizer's advanced caching with request coalescing
+        return performanceOptimizer.coalesceRequests(cacheKey, async () => {
+            // Check local cache first
+            const cached = this.getFromCache<PipelineInfo>(cacheKey);
             
-            if (!latestBuild) {
-                return {
-                    id: pipelineId,
-                    name: `Pipeline ${pipelineId}`,
-                    status: PipelineStatus.Unknown
-                };
+            if (cached) {
+                this.logger.debug(`Returning cached pipeline status for ${pipelineId}${branchName ? ` (branch: ${branchName})` : ''}`);
+                return cached;
             }
 
-            const pipelineInfo = this.buildToPipelineInfo(latestBuild);
-            this.setCache(cacheKey, pipelineInfo);
-            
-            return pipelineInfo;
-        } catch (error) {
-            this.logger.error(`Failed to get pipeline status for ${pipelineId}${branchName ? ` (branch: ${branchName})` : ''}`, error);
-            throw error;
-        }
+            try {
+                const latestBuild = await this.getLatestBuild(pipelineId, branchName);
+                
+                if (!latestBuild) {
+                    return {
+                        id: pipelineId,
+                        name: `Pipeline ${pipelineId}`,
+                        status: PipelineStatus.Unknown
+                    };
+                }
+
+                const pipelineInfo = this.buildToPipelineInfo(latestBuild);
+                this.setCache(cacheKey, pipelineInfo);
+                
+                return pipelineInfo;
+            } catch (error) {
+                this.logger.error(`Failed to get pipeline status for ${pipelineId}${branchName ? ` (branch: ${branchName})` : ''}`, error);
+                throw error;
+            }
+        });
     }
 
     public async getLatestBuild(pipelineId: number, branchName?: string): Promise<Build | null> {
         const cacheKey = `latest-build-${pipelineId}-${branchName || 'all'}`;
-        const cached = this.getFromCache<Build>(cacheKey);
         
-        if (cached) {
-            this.logger.debug(`Returning cached latest build for pipeline ${pipelineId}${branchName ? ` (branch: ${branchName})` : ''}`);
-            return cached;
-        }
-
-        try {
-            const buildApi = this.client.getBuildApi();
-            const projectName = this.client.getProjectName();
+        // Use request coalescing to prevent duplicate concurrent API calls
+        return performanceOptimizer.coalesceRequests(cacheKey, async () => {
+            const cached = this.getFromCache<Build>(cacheKey);
             
-            // Normalize branch name if provided
-            const normalizedBranch = branchName ? this.normalizeBranchName(branchName) : undefined;
-            
-            const builds = await this.client.retryWithExponentialBackoff(
-                () => buildApi.getBuilds(
-                    projectName,
-                    [pipelineId],
-                    undefined,  // queues
-                    undefined,  // buildNumber
-                    undefined,  // minTime
-                    undefined,  // maxTime
-                    undefined,  // requestedFor
-                    undefined,  // reasonFilter
-                    undefined,  // statusFilter
-                    undefined,  // resultFilter
-                    undefined,  // tagFilters
-                    undefined,  // properties
-                    1,          // top
-                    undefined,  // continuationToken
-                    undefined,  // maxBuildsPerDefinition
-                    undefined,  // deletedFilter
-                    undefined,  // queryOrder
-                    normalizedBranch  // branchName
-                ),
-                this.MAX_RETRIES
-            );
-
-            if (builds && builds.length > 0) {
-                const build = builds[0];
-                this.setCache(cacheKey, build);
-                this.logger.debug(`Found build for pipeline ${pipelineId}${branchName ? ` on branch ${branchName}` : ''}:`, {
-                    buildNumber: build.buildNumber,
-                    sourceBranch: build.sourceBranch,
-                    status: build.status
-                });
-                return build;
+            if (cached) {
+                this.logger.debug(`Returning cached latest build for pipeline ${pipelineId}${branchName ? ` (branch: ${branchName})` : ''}`);
+                return cached;
             }
 
-            this.logger.warn(`No builds found for pipeline ${pipelineId}${branchName ? ` on branch ${branchName}` : ''}`);
-            return null;
-        } catch (error) {
-            this.logger.error(`Failed to get latest build for pipeline ${pipelineId}${branchName ? ` (branch: ${branchName})` : ''}`, error);
-            throw error;
-        }
+            try {
+                const buildApi = this.client.getBuildApi();
+                const projectName = this.client.getProjectName();
+                
+                // Normalize branch name if provided
+                const normalizedBranch = branchName ? this.normalizeBranchName(branchName) : undefined;
+                
+                const builds = await this.client.retryWithExponentialBackoff(
+                    () => buildApi.getBuilds(
+                        projectName,
+                        [pipelineId],
+                        undefined,  // queues
+                        undefined,  // buildNumber
+                        undefined,  // minTime
+                        undefined,  // maxTime
+                        undefined,  // requestedFor
+                        undefined,  // reasonFilter
+                        undefined,  // statusFilter
+                        undefined,  // resultFilter
+                        undefined,  // tagFilters
+                        undefined,  // properties
+                        1,          // top
+                        undefined,  // continuationToken
+                        undefined,  // maxBuildsPerDefinition
+                        undefined,  // deletedFilter
+                        undefined,  // queryOrder
+                        normalizedBranch  // branchName
+                    ),
+                    this.MAX_RETRIES
+                );
+
+                if (builds && builds.length > 0) {
+                    const build = builds[0];
+                    this.setCache(cacheKey, build);
+                    this.logger.debug(`Found build for pipeline ${pipelineId}${branchName ? ` on branch ${branchName}` : ''}:`, {
+                        buildNumber: build.buildNumber,
+                        sourceBranch: build.sourceBranch,
+                        status: build.status
+                    });
+                    return build;
+                }
+
+                this.logger.warn(`No builds found for pipeline ${pipelineId}${branchName ? ` on branch ${branchName}` : ''}`);
+                return null;
+            } catch (error) {
+                this.logger.error(`Failed to get latest build for pipeline ${pipelineId}${branchName ? ` (branch: ${branchName})` : ''}`, error);
+                throw error;
+            }
+        });
     }
 
     /**

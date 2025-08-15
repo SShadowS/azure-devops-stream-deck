@@ -20,6 +20,7 @@ jest.mock('@elgato/streamdeck', () => ({
 describe('AzureDevOpsClient', () => {
     let client: AzureDevOpsClient;
     let mockBuildApi: any;
+    let mockGitApi: any;
     let mockWebApi: any;
 
     beforeEach(() => {
@@ -30,8 +31,14 @@ describe('AzureDevOpsClient', () => {
             getBuilds: jest.fn()
         };
         
+        mockGitApi = {
+            getRepositories: jest.fn(),
+            getPullRequests: jest.fn()
+        };
+        
         mockWebApi = {
-            getBuildApi: jest.fn().mockResolvedValue(mockBuildApi)
+            getBuildApi: jest.fn().mockResolvedValue(mockBuildApi),
+            getGitApi: jest.fn().mockResolvedValue(mockGitApi)
         };
         
         (azdev.WebApi as unknown as jest.Mock) = jest.fn().mockImplementation(() => mockWebApi);

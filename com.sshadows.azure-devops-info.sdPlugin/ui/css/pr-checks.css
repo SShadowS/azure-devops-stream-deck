@@ -1,0 +1,134 @@
+/* PR Checks Property Inspector Styles */
+
+/* Status message styles */
+.sdpi-item.success {
+    background-color: rgba(14, 124, 58, 0.1);
+    border-left: 3px solid #0E7C3A;
+    padding: 10px;
+    margin: 10px 0;
+}
+
+.sdpi-item.error {
+    background-color: rgba(216, 52, 56, 0.1);
+    border-left: 3px solid #D83438;
+    padding: 10px;
+    margin: 10px 0;
+}
+
+.sdpi-item.info {
+    background-color: rgba(0, 120, 212, 0.1);
+    border-left: 3px solid #0078D4;
+    padding: 10px;
+    margin: 10px 0;
+}
+
+/* Button styles */
+button#testConnection {
+    margin-top: 8px;
+    padding: 8px 16px;
+    background-color: #0078D4;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    width: 100%;
+}
+
+button#testConnection:hover {
+    background-color: #106EBE;
+}
+
+button#testConnection:active {
+    background-color: #005A9E;
+}
+
+/* Checkbox group styles */
+.sdpi-item-child {
+    margin: 8px 0;
+    display: flex;
+    align-items: center;
+}
+
+.sdpi-item-child input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+.sdpi-item-child label {
+    font-size: 13px;
+    color: #D8D8D8;
+    cursor: pointer;
+}
+
+/* Heading styles */
+.sdpi-heading {
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    color: #999;
+    margin: 20px 0 10px 0;
+    border-bottom: 1px solid #3A3A3A;
+    padding-bottom: 5px;
+}
+
+.sdpi-heading:first-child {
+    margin-top: 10px;
+}
+
+/* Input focus styles */
+input:focus,
+select:focus {
+    outline: none;
+    border-color: #0078D4;
+    box-shadow: 0 0 0 1px #0078D4;
+}
+
+/* Required field indicator */
+input:required:invalid {
+    border-color: #D83438;
+}
+
+input:required:valid {
+    border-color: #0E7C3A;
+}
+
+/* Placeholder text */
+input::placeholder {
+    color: #666;
+    font-style: italic;
+}
+
+/* Select dropdown customization */
+select.select {
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3e%3cpath fill='%23999' d='M10.293 3.293L6 7.586 1.707 3.293A1 1 0 00.293 4.707l5 5a1 1 0 001.414 0l5-5a1 1 0 10-1.414-1.414z'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 30px;
+}
+
+/* Message details */
+.message {
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.message summary {
+    cursor: pointer;
+    padding: 5px;
+}
+
+.message summary:hover {
+    color: #0078D4;
+}
+
+/* Responsive adjustments */
+@media (max-width: 360px) {
+    .sdpi-item-label {
+        font-size: 11px;
+    }
+    
+    button#testConnection {
+        font-size: 11px;
+        padding: 6px 12px;
+    }
+}

@@ -16,14 +16,33 @@ export class Logger {
 }
 
 export class SingletonAction {
-    onWillAppear = jest.fn();
-    onWillDisappear = jest.fn();
-    onKeyDown = jest.fn();
-    onKeyUp = jest.fn();
-    onDidReceiveSettings = jest.fn();
-    onPropertyInspectorDidAppear = jest.fn();
-    onPropertyInspectorDidDisappear = jest.fn();
-    onSendToPlugin = jest.fn();
+    // These are methods that can be overridden by subclasses
+    onWillAppear(ev: any): Promise<void> {
+        return Promise.resolve();
+    }
+    onWillDisappear(ev: any): Promise<void> {
+        return Promise.resolve();
+    }
+    onKeyDown(ev: any): Promise<void> {
+        return Promise.resolve();
+    }
+    onKeyUp(ev: any): Promise<void> {
+        return Promise.resolve();
+    }
+    onDidReceiveSettings(ev: any): Promise<void> {
+        return Promise.resolve();
+    }
+    onPropertyInspectorDidAppear(ev: any): Promise<void> {
+        return Promise.resolve();
+    }
+    onPropertyInspectorDidDisappear(ev: any): Promise<void> {
+        return Promise.resolve();
+    }
+    onSendToPlugin(ev: any): Promise<void> {
+        return Promise.resolve();
+    }
+    
+    // These are instance methods
     setTitle = jest.fn();
     setImage = jest.fn();
     setState = jest.fn();
@@ -43,9 +62,13 @@ export const action = (uuid: string) => {
 };
 
 export const streamDeck = {
-    logger: new Logger(),
+    logger: {
+        ...new Logger(),
+        createScope: jest.fn(() => new Logger())
+    },
     actions: {
-        registerAction: jest.fn()
+        registerAction: jest.fn(),
+        getActionById: jest.fn()
     },
     connect: jest.fn(),
     devices: {

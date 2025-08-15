@@ -90,19 +90,27 @@ The Stream Deck plugin follows a specific directory structure:
   - Polls Azure DevOps at configured intervals
   - Updates Stream Deck button with status, color, and text
   - Opens pipeline in browser on button press
+- **PullRequestStatusAction**: Action that displays pull request status and metrics
+  - Monitors pull requests across repositories or specific repositories
+  - Filters by status, branch, creator, reviewer, and age
+  - Displays count, age, titles, and merge conflict indicators
 
 #### Services (`src/services/`)
 - **AzureDevOpsClient**: Handles Azure DevOps API authentication and connections
 - **PipelineService**: Manages pipeline status retrieval with caching
+- **PullRequestService**: Manages pull request retrieval with filtering and aggregation
 
 #### Utilities (`src/utils/`)
 - **StatusDisplayManager**: Maps pipeline statuses to colors and formatting
+- **PRDisplayManager**: Maps pull request states to colors and formatting
 - **CredentialManager**: Encrypts/decrypts PAT tokens for secure storage
 - **ErrorHandler**: Comprehensive error handling with retry logic
 
 #### UI (`com.sshadows.azure-devops-info.sdPlugin/ui/`)
-- **pipeline-status.html**: Property Inspector for configuration
-- **pipeline-status.css**: Styling for Property Inspector
+- **pipeline-status.html**: Property Inspector for pipeline configuration
+- **pull-request-status.html**: Property Inspector for pull request configuration
+- **pipeline-status.css**: Styling for pipeline Property Inspector
+- **pull-request-status.css**: Styling for pull request Property Inspector
 
 ## SDK Documentation References
 
@@ -111,6 +119,19 @@ Key SDK documentation for this project:
 - [Actions Guide](https://docs.elgato.com/streamdeck/sdk/guides/actions)
 - [Settings Guide](https://docs.elgato.com/streamdeck/sdk/guides/settings)
 - [Manifest Reference](https://docs.elgato.com/streamdeck/sdk/references/manifest)
+
+### Example Plugins
+The `streamdeck-plugin-samples` subfolder contains official Elgato Stream Deck plugin examples that demonstrate correct SDK v2 patterns:
+- **hello-world**: Basic plugin structure and communication patterns
+- **data-sources**: Shows proper Property Inspector to Plugin communication using `streamDeck.ui.current?.sendToPropertyInspector()`
+- **counter**: Demonstrates state management and updates
+- **cpu**: Shows dynamic data updates and monitoring
+
+These examples are valuable references for:
+- Correct SDPIComponents v4 API usage
+- Property Inspector communication patterns
+- Local `sdpi-components.js` usage (instead of CDN)
+- Proper event handling between Plugin and Property Inspector
 
 ## Debugging
 
@@ -128,9 +149,27 @@ Stream Deck provides a Chrome DevTools interface for debugging:
 - Useful for debugging JavaScript errors and monitoring plugin-to-PI communication
 
 ### Common Debugging Commands
+
+#### Windows Commands (PowerShell/CMD)
 ```bash
-# View the latest plugin logs
-type com.sshadows.azure-devops-info.sdPlugin\logs\com.sshadows.azure-devops-info.0.log
+# List directory contents
+dir "path\to\directory"
+# Example: dir "com.sshadows.azure-devops-info.sdPlugin\imgs\actions"
+
+# View file contents
+type "path\to\file"
+# Example: type "com.sshadows.azure-devops-info.sdPlugin\logs\com.sshadows.azure-devops-info.0.log"
+
+# View last N lines of a file (PowerShell)
+powershell -Command "Get-Content 'path\to\file' -Tail 50"
+# Example: powershell -Command "Get-Content 'com.sshadows.azure-devops-info.sdPlugin\logs\com.sshadows.azure-devops-info.0.log' -Tail 50"
+
+# Search file contents (PowerShell)
+powershell -Command "Get-Content 'path\to\file' | Select-String 'pattern'"
+# Example: powershell -Command "Get-Content 'com.sshadows.azure-devops-info.sdPlugin\logs\com.sshadows.azure-devops-info.0.log' | Select-String 'propertyInspector'"
+
+# Search with multiple patterns (PowerShell)
+powershell -Command "Get-Content 'path\to\file' | Select-String 'pattern1|pattern2|pattern3'"
 
 # Restart the plugin after making changes
 streamdeck restart com.sshadows.azure-devops-info
@@ -147,3 +186,67 @@ npm run watch
 #### __dirname is not defined
 **Problem**: The azure-devops-node-api library uses Node.js globals like `__dirname` which don't exist in the bundled environment.
 **Solution**: Added a polyfill in rollup.config.mjs to define `__dirname` globally before the code runs.
+
+#### SDPIComponents v4 API Usage
+**Problem**: Property Inspector communication using incorrect API methods like `onConnected()`, `onDidReceiveSettings()`, etc.
+**Solution**: Use correct SDPIComponents v4 API:
+- `streamDeckClient.getSettings()` to get current settings
+- `streamDeckClient.didReceiveSettings = (settings) => {}` to handle settings changes
+- `streamDeckClient.sendToPropertyInspector = (data) => {}` to receive messages from plugin
+- `streamDeckClient.send('sendToPlugin', data)` to send messages to plugin
+
+## Common Stream Deck Plugin Patterns
+
+Based on the official SDK examples, here are the key patterns and best practices:
+
+### 1. Plugin Structure
+- **Entry point**: `src/plugin.ts` that registers actions and connects to Stream Deck
+- **Actions**: Located in `src/actions/` directory, each extending `SingletonAction`
+- **Decorator**: Use `@action` decorator with UUID matching manifest.json
+- **Logging**: Enable TRACE logging for development debugging
+
+### 2. Action Lifecycle Methods
+- **`onWillAppear`**: Initialize action when it becomes visible on Stream Deck
+- **`onWillDisappear`**: Clean up resources when action is removed
+- **`onKeyDown/onKeyUp`**: Handle button press events
+- **`onDialRotate`**: Handle encoder rotation (Stream Deck +)
+- **`onDidReceiveSettings`**: React to Property Inspector setting changes
+- **`onSendToPlugin`**: Handle custom messages from Property Inspector
+
+### 3. Property Inspector Communication
+- **From PI to Plugin**: 
+  - Use `datasource` attribute for dynamic dropdowns
+  - Use `streamDeck.ui.sendToPlugin()` for custom messages
+- **From Plugin to PI**: 
+  - Use `streamDeck.ui.current?.sendToPropertyInspector()` to send data
+- **Settings**: 
+  - Automatically synced via `setting` attribute on SDPI components
+  - Access with `ev.payload.settings` in action methods
+- **Local Components**: Use local `sdpi-components.js` instead of CDN for v4
+
+### 4. Common Implementation Patterns
+- **Settings Management**: 
+  - Define typed settings interfaces
+  - Use `ev.action.setSettings()` to save settings
+  - Use `ev.action.getSettings()` to retrieve current settings
+- **Visual Updates**: 
+  - `action.setTitle()` - Update button text
+  - `action.setImage()` - Update button image
+  - `action.setState()` - Toggle button states
+- **Feedback Layouts**: 
+  - `action.setFeedbackLayout()` for Stream Deck + encoder displays
+  - `action.setFeedback()` to update layout values
+- **Error Handling**: 
+  - Wrap async operations in try-catch blocks
+  - Use `streamDeck.logger.error()` for logging errors
+- **Timers**: 
+  - Store interval/timeout references for cleanup
+  - Clear timers in `onWillDisappear` to prevent memory leaks
+
+### 5. Best Practices
+- **Type Guards**: Use `isKey()` before key-specific operations
+- **Singleton Pattern**: Share state across multiple action instances
+- **Action References**: Store action instances for batch updates
+- **Resource Cleanup**: Always clean up timers/connections in `onWillDisappear`
+- **Image Handling**: Use Buffer/base64 encoding for dynamic images
+- **Async Operations**: Return promises from lifecycle methods for proper sequencing

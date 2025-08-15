@@ -1,5 +1,6 @@
 import * as azdev from 'azure-devops-node-api';
 import * as BuildApi from 'azure-devops-node-api/BuildApi';
+import * as GitApi from 'azure-devops-node-api/GitApi';
 import streamDeck from '@elgato/streamdeck';
 
 export interface AzureDevOpsConfig {
@@ -8,9 +9,15 @@ export interface AzureDevOpsConfig {
     projectName: string;
 }
 
+export interface Repository {
+    id: string;
+    name: string;
+}
+
 export class AzureDevOpsClient {
     private connection: azdev.WebApi | null = null;
     private buildApi: BuildApi.IBuildApi | null = null;
+    private gitApi: GitApi.IGitApi | null = null;
     private config: AzureDevOpsConfig | null = null;
     private logger = streamDeck.logger.createScope('AzureDevOpsClient');
     private connectionValidated = false;
@@ -19,6 +26,21 @@ export class AzureDevOpsClient {
 
     constructor() {
         this.logger.debug('AzureDevOpsClient initialized');
+    }
+
+    /**
+     * Disconnects from Azure DevOps and cleans up resources.
+     */
+    public async disconnect(): Promise<void> {
+        this.logger.debug('Disconnecting from Azure DevOps');
+        
+        this.connection = null;
+        this.buildApi = null;
+        this.gitApi = null;
+        this.config = null;
+        this.connectionValidated = false;
+        
+        this.logger.info('Disconnected from Azure DevOps');
     }
 
     public async connect(config: AzureDevOpsConfig): Promise<void> {
@@ -38,6 +60,7 @@ export class AzureDevOpsClient {
             const authHandler = azdev.getPersonalAccessTokenHandler(config.personalAccessToken);
             this.connection = new azdev.WebApi(config.organizationUrl, authHandler);
             this.buildApi = await this.connection.getBuildApi();
+            this.gitApi = await this.connection.getGitApi();
             
             await this.validateConnection();
             this.connectionValidated = true;
@@ -46,6 +69,7 @@ export class AzureDevOpsClient {
             this.connectionValidated = false;
             this.connection = null;
             this.buildApi = null;
+            this.gitApi = null;
             this.logger.error('Failed to connect to Azure DevOps', error);
             throw error;
         }
@@ -82,7 +106,7 @@ export class AzureDevOpsClient {
     }
 
     public isConnected(): boolean {
-        return this.connectionValidated && this.connection !== null && this.buildApi !== null;
+        return this.connectionValidated && this.connection !== null && this.buildApi !== null && this.gitApi !== null;
     }
 
     public getBuildApi(): BuildApi.IBuildApi {
@@ -92,6 +116,13 @@ export class AzureDevOpsClient {
         return this.buildApi;
     }
 
+    public getGitApi(): GitApi.IGitApi {
+        if (!this.gitApi) {
+            throw new Error('Client not connected. Call connect() first.');
+        }
+        return this.gitApi;
+    }
+
     public getProjectName(): string {
         if (!this.config) {
             throw new Error('Client not configured');
@@ -99,13 +130,23 @@ export class AzureDevOpsClient {
         return this.config.projectName;
     }
 
-    public disconnect(): void {
-        this.connection = null;
-        this.buildApi = null;
-        this.connectionValidated = false;
-        this.config = null;
-        this.logger.debug('Disconnected from Azure DevOps');
+    public async getRepositories(): Promise<Array<{id: string, name: string}>> {
+        if (!this.gitApi || !this.config) {
+            throw new Error('Client not connected. Call connect() first.');
+        }
+
+        try {
+            const repos = await this.gitApi.getRepositories(this.config.projectName);
+            return repos.map(repo => ({
+                id: repo.id || '',
+                name: repo.name || ''
+            }));
+        } catch (error) {
+            this.logger.error('Failed to get repositories', error);
+            throw error;
+        }
     }
+
 
     public async retryWithExponentialBackoff<T>(
         operation: () => Promise<T>,

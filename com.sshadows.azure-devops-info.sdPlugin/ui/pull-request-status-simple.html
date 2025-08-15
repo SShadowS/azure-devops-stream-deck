@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+
+<head lang="en">
+    <title>Pull Request Status Settings</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="css/pull-request-status.css">
+    <script src="sdpi-components.js"></script>
+</head>
+
+<body>
+    <div class="section-header">Azure DevOps Configuration</div>
+    
+    <sdpi-item label="Organization URL">
+        <sdpi-textfield setting="organizationUrl" placeholder="https://dev.azure.com/yourorg"></sdpi-textfield>
+    </sdpi-item>
+    
+    <sdpi-item label="Project Name">
+        <sdpi-textfield setting="projectName" placeholder="MyProject"></sdpi-textfield>
+    </sdpi-item>
+    
+    <sdpi-item label="Personal Access Token">
+        <sdpi-textfield setting="personalAccessToken" type="password" placeholder="Your PAT token"></sdpi-textfield>
+    </sdpi-item>
+    
+    <sdpi-item label="Repository">
+        <sdpi-select setting="repositoryId" default="all">
+            <option value="all">All Repositories</option>
+        </sdpi-select>
+    </sdpi-item>
+    
+    <div class="section-header">Filter Options</div>
+    
+    <sdpi-item label="PR Status">
+        <sdpi-select setting="statusFilter" default="active">
+            <option value="active">Active</option>
+            <option value="completed">Completed</option>
+            <option value="abandoned">Abandoned</option>
+            <option value="all">All</option>
+        </sdpi-select>
+    </sdpi-item>
+    
+    <sdpi-item label="Target Branch">
+        <sdpi-textfield setting="targetBranch" placeholder="main, develop, or refs/heads/main"></sdpi-textfield>
+    </sdpi-item>
+    
+    <sdpi-item label="Creator Filter">
+        <sdpi-select setting="creatorFilter" default="anyone">
+            <option value="anyone">Anyone</option>
+            <option value="me">Me</option>
+        </sdpi-select>
+    </sdpi-item>
+    
+    <sdpi-item label="Reviewer Filter">
+        <sdpi-select setting="reviewerFilter" default="anyone">
+            <option value="anyone">Anyone</option>
+            <option value="me">Me</option>
+        </sdpi-select>
+    </sdpi-item>
+    
+    <sdpi-item label="Username">
+        <sdpi-textfield setting="username" placeholder="user@domain.com or username"></sdpi-textfield>
+    </sdpi-item>
+    
+    <sdpi-item label="Max PR Age (days)">
+        <sdpi-range setting="maxAge" min="1" max="30" step="1" default="7" showlabels>
+            <span slot="suffix">days</span>
+        </sdpi-range>
+    </sdpi-item>
+    
+    <div class="section-header">Display Options</div>
+    
+    <sdpi-item label="Refresh Interval">
+        <sdpi-range setting="refreshInterval" min="10" max="300" step="10" default="30" showlabels>
+            <span slot="suffix">seconds</span>
+        </sdpi-range>
+    </sdpi-item>
+    
+    <sdpi-item label="Display Format">
+        <sdpi-select setting="displayFormat" default="combined">
+            <option value="count">PR Count</option>
+            <option value="age">Oldest PR Age</option>
+            <option value="title">PR Title (Rotating)</option>
+            <option value="combined">Count + Age</option>
+        </sdpi-select>
+    </sdpi-item>
+    
+    <sdpi-item label="Alert Threshold">
+        <sdpi-range setting="alertThreshold" min="1" max="20" step="1" default="5" showlabels>
+            <span slot="suffix">PRs</span>
+        </sdpi-range>
+    </sdpi-item>
+    
+    <sdpi-item label="Show Merge Conflicts">
+        <sdpi-checkbox setting="showMergeConflicts" default="true"></sdpi-checkbox>
+    </sdpi-item>
+</body>
+
+</html>

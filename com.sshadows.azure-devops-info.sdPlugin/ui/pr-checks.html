@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+
+<head lang="en">
+    <title>PR Checks Settings</title>
+    <meta charset="utf-8" />
+    <script src="sdpi-components.js"></script>
+</head>
+
+<body>
+    <!--
+        Learn more about property inspector components at https://sdpi-components.dev/docs/components
+    -->
+    
+    <sdpi-item label="Organization URL">
+        <sdpi-textfield setting="organizationUrl" placeholder="https://dev.azure.com/yourorg"></sdpi-textfield>
+    </sdpi-item>
+    
+    <sdpi-item label="Project Name">
+        <sdpi-textfield setting="projectName" placeholder="MyProject"></sdpi-textfield>
+    </sdpi-item>
+    
+    <sdpi-item label="Personal Access Token">
+        <sdpi-textfield setting="personalAccessToken" type="password" placeholder="Your PAT token"></sdpi-textfield>
+    </sdpi-item>
+    
+    <sdpi-item label="Repository">
+        <sdpi-select setting="repository" default="all" datasource="getRepositories" loading="Fetching repositories..." placeholder="Please select">
+        </sdpi-select>
+    </sdpi-item>
+    
+    <sdpi-item label="Target Branch (Optional)">
+        <sdpi-textfield setting="targetBranch" placeholder="main, develop, or refs/heads/main"></sdpi-textfield>
+    </sdpi-item>
+    
+    <sdpi-item label="Filter Options">
+        <sdpi-checkbox setting="showOnlyMyPRs" default="false">Show only my PRs</sdpi-checkbox>
+        <sdpi-checkbox setting="showPRsImReviewing" default="false">Show PRs I'm reviewing</sdpi-checkbox>
+        <sdpi-checkbox setting="showConflictsOnly" default="false">Show only PRs with conflicts</sdpi-checkbox>
+    </sdpi-item>
+    
+    <sdpi-item label="Refresh Interval">
+        <sdpi-range setting="refreshInterval" min="30" max="300" step="30" default="60" showlabels>
+            <span slot="suffix">seconds</span>
+        </sdpi-range>
+    </sdpi-item>
+    
+    <sdpi-item label="Display Options">
+        <sdpi-select setting="displayFormat" default="both">
+            <option value="icon">Icon Only</option>
+            <option value="text">Text Only</option>
+            <option value="both">Icon and Text</option>
+        </sdpi-select>
+    </sdpi-item>
+    
+    <sdpi-item label="Show PR Count">
+        <sdpi-checkbox setting="showPRCount" default="true"></sdpi-checkbox>
+    </sdpi-item>
+</body>
+
+</html>

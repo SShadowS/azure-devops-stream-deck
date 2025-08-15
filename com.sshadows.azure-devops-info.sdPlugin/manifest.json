@@ -4,22 +4,6 @@
 	"Author": "SShadowS",
 	"Actions": [
 		{
-			"Name": "Counter",
-			"UUID": "com.sshadows.azure-devops-info.increment",
-			"Icon": "imgs/actions/counter/icon",
-			"Tooltip": "Displays a count, which increments by one on press.",
-			"PropertyInspectorPath": "ui/increment-counter.html",
-			"Controllers": [
-				"Keypad"
-			],
-			"States": [
-				{
-					"Image": "imgs/actions/counter/key",
-					"TitleAlignment": "middle"
-				}
-			]
-		},
-		{
 			"Name": "Pipeline Status",
 			"UUID": "com.sshadows.azure-devops-info.pipelinestatus",
 			"Icon": "imgs/actions/pipeline-status/icon",
@@ -63,6 +47,30 @@
 					"Image": "imgs/actions/pipeline-status/notstarted",
 					"TitleAlignment": "middle",
 					"Name": "Not Started"
+				}
+			]
+		},
+		{
+			"Name": "PR Checks",
+			"UUID": "com.sshadows.azure-devops-info.pr-checks",
+			"Icon": "imgs/actions/pr-checks/icon",
+			"Tooltip": "Monitor pull requests in Azure DevOps",
+			"PropertyInspectorPath": "ui/pr-checks.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/pr-checks/pr",
+					"TitleAlignment": "middle",
+					"FontSize": "10",
+					"Name": "Normal"
+				},
+				{
+					"Image": "imgs/actions/pr-checks/pr-error",
+					"TitleAlignment": "middle",
+					"FontSize": "10",
+					"Name": "Error"
 				}
 			]
 		}

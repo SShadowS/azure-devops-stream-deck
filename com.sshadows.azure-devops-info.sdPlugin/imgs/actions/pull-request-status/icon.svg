@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 144">
+  <rect width="144" height="144" fill="#1e1e1e" rx="20"/>
+  <g transform="translate(72, 72)">
+    <!-- Main PR icon -->
+    <circle cx="-20" cy="-10" r="8" fill="#007ACC" stroke="#007ACC" stroke-width="2"/>
+    <circle cx="20" cy="-10" r="8" fill="#007ACC" stroke="#007ACC" stroke-width="2"/>
+    <path d="M -20 -2 L -20 25" stroke="#007ACC" stroke-width="4" stroke-linecap="round"/>
+    <path d="M 20 -2 L 20 25" stroke="#007ACC" stroke-width="4" stroke-linecap="round"/>
+    <path d="M -20 15 Q 0 15 20 15" stroke="#007ACC" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="M 12 10 L 20 15 L 12 20" stroke="#007ACC" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

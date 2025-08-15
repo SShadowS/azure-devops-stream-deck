@@ -5,7 +5,9 @@
     <title>Pipeline Status Settings</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="css/pipeline-status.css">
-    <script src="https://sdpi-components.dev/releases/v4/sdpi-components.js"></script>
+    <script src="sdpi-components.js"></script>
+    <script src="js/pi-common.js"></script>
+    <script src="js/pipeline-status-pi.js"></script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -116,143 +118,6 @@
         </div>
         <textarea id="debugLog" class="debug-log" readonly></textarea>
     </sdpi-item>
-    
-    <script>
-        // Debug logging
-        let debugLogs = [];
-        const streamDeckClient = SDPIComponents.streamDeckClient;
-        
-        function debugLog(message, data = null) {
-            const timestamp = new Date().toISOString().substring(11, 23);
-            let logEntry = `[${timestamp}] ${message}`;
-            if (data) {
-                logEntry += '\n' + JSON.stringify(data, null, 2);
-            }
-            debugLogs.push(logEntry);
-            
-            // Keep only last 100 logs
-            if (debugLogs.length > 100) {
-                debugLogs.shift();
-            }
-            
-            const debugLogElement = document.getElementById('debugLog');
-            if (debugLogElement) {
-                debugLogElement.value = debugLogs.join('\n\n');
-                debugLogElement.scrollTop = debugLogElement.scrollHeight;
-            }
-        }
-        
-        // Initialize when connected
-        streamDeckClient.onConnected(() => {
-            debugLog('Connected to Stream Deck');
-            
-            // Get current settings
-            const settings = streamDeckClient.settings;
-            debugLog('Current settings', settings);
-        });
-        
-        // Test connection button
-        document.getElementById('testConnection').addEventListener('click', async () => {
-            debugLog('Test Connection clicked');
-            
-            const statusEl = document.getElementById('connectionStatus');
-            const buttonEl = document.getElementById('testConnection');
-            
-            // Get current settings
-            const settings = streamDeckClient.settings;
-            
-            debugLog('Testing with settings', settings);
-            
-            // Validate required fields
-            if (!settings.organizationUrl || !settings.projectName || !settings.pipelineId || !settings.personalAccessToken) {
-                const error = 'Please fill in all required fields';
-                debugLog('Validation failed', { error, settings });
-                statusEl.textContent = error;
-                statusEl.className = 'status-message error visible';
-                setTimeout(() => statusEl.classList.remove('visible'), 5000);
-                return;
-            }
-            
-            // Show testing status
-            statusEl.textContent = 'Testing connection...';
-            statusEl.className = 'status-message testing visible';
-            buttonEl.disabled = true;
-            
-            // Send test request to plugin
-            debugLog('Sending test connection request to plugin');
-            streamDeckClient.send({
-                event: 'testConnection',
-                payload: settings
-            });
-        });
-        
-        // Listen for messages from plugin
-        streamDeckClient.onSendToPropertyInspector((data) => {
-            debugLog('Received from plugin', data);
-            
-            // Handle debug messages from plugin
-            if (data.event === 'debugLog') {
-                debugLog(`[PLUGIN] ${data.message}`, data.data);
-                return;
-            }
-            
-            // Handle test connection response
-            if (data.event === 'testConnectionResult') {
-                const statusEl = document.getElementById('connectionStatus');
-                const buttonEl = document.getElementById('testConnection');
-                
-                buttonEl.disabled = false;
-                
-                if (data.success) {
-                    debugLog('Connection test successful', { message: data.message });
-                    statusEl.textContent = data.message || 'Connection successful!';
-                    statusEl.className = 'status-message success visible';
-                } else {
-                    debugLog('Connection test failed', { message: data.message });
-                    statusEl.textContent = data.message || 'Connection failed';
-                    statusEl.className = 'status-message error visible';
-                }
-                
-                // Hide status after 5 seconds
-                setTimeout(() => {
-                    statusEl.classList.remove('visible');
-                }, 5000);
-            }
-        });
-        
-        // Copy logs button
-        document.getElementById('copyLogs').addEventListener('click', () => {
-            const debugLogElement = document.getElementById('debugLog');
-            if (debugLogElement) {
-                debugLogElement.select();
-                document.execCommand('copy');
-                
-                // Show feedback
-                const copyButton = document.getElementById('copyLogs');
-                const originalText = copyButton.textContent;
-                copyButton.textContent = 'Copied!';
-                setTimeout(() => {
-                    copyButton.textContent = originalText;
-                }, 1500);
-            }
-            debugLog('Logs copied to clipboard');
-        });
-        
-        // Clear logs button
-        document.getElementById('clearLogs').addEventListener('click', () => {
-            debugLogs = [];
-            const debugLogElement = document.getElementById('debugLog');
-            if (debugLogElement) {
-                debugLogElement.value = '';
-            }
-            debugLog('Logs cleared');
-        });
-        
-        // Log settings changes
-        streamDeckClient.onDidReceiveSettings((settings) => {
-            debugLog('Settings updated', settings);
-        });
-    </script>
 </body>
 
 </html>
