@@ -1,16 +1,76 @@
 # Azure DevOps Info - Stream Deck Plugin
 
-A Stream Deck plugin that displays real-time Azure DevOps pipeline status and build information directly on your Stream Deck buttons.
+[![CI](https://github.com/SShadowS/azure-devops-stream-deck/actions/workflows/ci.yml/badge.svg)](https://github.com/SShadowS/azure-devops-stream-deck/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/SShadowS/azure-devops-stream-deck)](https://github.com/SShadowS/azure-devops-stream-deck/releases)
+[![License](https://img.shields.io/github/license/SShadowS/azure-devops-stream-deck)](LICENSE)
 
-## Features
+A comprehensive Stream Deck plugin that provides real-time monitoring and control of your Azure DevOps environment directly from your Stream Deck.
 
-- **Real-time Pipeline Status Monitoring**: View the current status of your Azure DevOps build pipelines
-- **Branch Filtering**: Monitor specific branches (e.g., main, develop) or all branches
-- **Visual Status Indicators**: Different colors and states for Success, Failed, Running, Partially Succeeded, Canceled, and Unknown states
-- **Build Information Display**: Shows build number, version, and duration
-- **Secure Credential Storage**: Personal Access Tokens are encrypted using AES-256-GCM
-- **Automatic Updates**: Configurable refresh intervals (30 seconds to 5 minutes)
-- **Click to Open**: Press the button to open the pipeline directly in Azure DevOps
+## 🎯 Current Features
+
+### ✅ Pipeline Status Monitor
+- **Real-time Build Status**: View the current status of your Azure DevOps pipelines
+- **Branch Filtering**: Monitor specific branches (main, develop, feature branches) or all branches
+- **Visual Indicators**: Color-coded states for Success (green), Failed (red), Running (blue), Partial (yellow), Canceled (gray)
+- **Build Details**: Shows build number, version, duration, and last run time
+- **One-Click Access**: Press to open pipeline directly in Azure DevOps
+- **Auto-refresh**: Configurable intervals from 30 seconds to 5 minutes
+- **Smart Caching**: Minimizes API calls with intelligent result caching
+
+### ✅ Pull Request Monitor
+- **PR Status Tracking**: Monitor open, active, and draft pull requests
+- **Multi-Repository Support**: Track PRs across all or specific repositories
+- **Advanced Filtering**:
+  - By status (Active, Draft, Completed, Abandoned)
+  - By target branch
+  - By creator or reviewer
+  - By age (days since creation)
+- **Visual Metrics**: Shows PR count, age, and merge conflicts
+- **Review Status**: See approval status and required reviewers
+- **Quick Navigation**: Click to open PR list in browser
+
+## 🚀 Upcoming Features (In Development)
+
+### 🔄 Work Item Status
+- Track assigned work items, bugs, and tasks
+- Filter by iteration, area path, or assignee
+- Visual priority indicators
+- Quick status updates from Stream Deck
+
+### 📊 Sprint Progress
+- Real-time sprint burndown visualization
+- Story points completion tracking
+- Sprint velocity metrics
+- Days remaining indicator
+- On-track/behind schedule alerts
+
+### 📈 Repository Statistics
+- Commit activity monitoring
+- Branch count and active development tracking
+- Code churn metrics
+- Contributor activity overview
+- Repository size and growth trends
+
+### 🚀 Release Pipeline Monitor
+- Release deployment status across environments
+- Stage progression tracking
+- Approval pending notifications
+- Rollback capabilities
+- Environment health indicators
+
+### 🏗️ Build Queue Manager
+- View queued builds
+- Queue position tracking
+- One-click build triggering
+- Build cancellation
+- Agent pool status
+
+### 🧪 Test Results Summary
+- Test run success/failure rates
+- Code coverage metrics
+- Failed test details
+- Test duration trends
+- Flaky test identification
 
 ## Requirements
 
@@ -19,137 +79,244 @@ A Stream Deck plugin that displays real-time Azure DevOps pipeline status and bu
 - Azure DevOps account with appropriate permissions
 - Personal Access Token (PAT) with Build (read) permissions
 
-## Installation
+## 📦 Installation
 
-### From Release
+### Automatic Installation (Recommended)
 1. Download the latest `.streamDeckPlugin` file from the [Releases](https://github.com/SShadowS/azure-devops-stream-deck/releases) page
 2. Double-click the downloaded file to install it in Stream Deck
+3. The plugin will appear in your Stream Deck application automatically
 
-### From Source
-1. Clone this repository
-2. Install dependencies: `npm install`
-3. Build the plugin: `npm run build`
-4. Install using Stream Deck CLI: `streamdeck link com.sshadows.azure-devops-info.sdPlugin`
-
-## Setup
-
-1. **Add the Pipeline Status action to your Stream Deck**
-   - Open Stream Deck software
-   - Search for "Pipeline Status" in the actions list
-   - Drag it to a button on your Stream Deck
-
-2. **Configure Azure DevOps Settings**
-   - Click on the button in Stream Deck software to open the Property Inspector
-   - Enter your Azure DevOps configuration:
-     - **Organization URL**: Your Azure DevOps organization URL (e.g., `https://dev.azure.com/yourorg`)
-     - **Project Name**: The name of your Azure DevOps project
-     - **Pipeline ID**: The numeric ID of the pipeline to monitor
-     - **Branch Name** (Optional): Filter builds by specific branch (e.g., 'main', 'develop', 'refs/heads/feature/xyz')
-     - **Personal Access Token**: Your Azure DevOps PAT (see below for instructions)
-     - **Refresh Interval**: How often to check for updates (30-300 seconds)
-
-3. **Test Connection**
-   - Click "Test Connection" to verify your settings
-   - The button will show the current pipeline status once connected
-
-## Creating a Personal Access Token
-
-1. Sign in to your Azure DevOps organization
-2. Click on your profile picture → Security → Personal access tokens
-3. Click "New Token"
-4. Configure the token:
-   - **Name**: Stream Deck Plugin (or any descriptive name)
-   - **Organization**: Select your organization
-   - **Expiration**: Set as needed (up to 1 year)
-   - **Scopes**: Select "Build" → "Read"
-5. Click "Create" and copy the token immediately (you won't be able to see it again)
-
-## Development
-
-### Prerequisites
-- Node.js 20+
-- npm or yarn
-- Stream Deck SDK CLI (`npm install -g @elgato/cli`)
-
-### Commands
+### Manual Installation from Source
 ```bash
+# Clone the repository
+git clone https://github.com/SShadowS/azure-devops-stream-deck.git
+cd azure-devops-stream-deck
+
 # Install dependencies
 npm install
 
 # Build the plugin
 npm run build
 
-# Watch mode (auto-rebuilds and restarts plugin)
+# Link to Stream Deck (for development)
+streamdeck link com.sshadows.azure-devops-info.sdPlugin
+
+# Or create a packaged plugin
+streamdeck pack com.sshadows.azure-devops-info.sdPlugin
+```
+
+## ⚙️ Configuration
+
+### Setting up Pipeline Status Monitor
+
+1. **Add the action to your Stream Deck**
+   - Open Stream Deck software
+   - Search for "Pipeline Status" in the actions list
+   - Drag it to a button on your Stream Deck
+
+2. **Configure Azure DevOps connection**
+   - Click on the button to open Property Inspector
+   - Enter your settings:
+     - **Organization URL**: `https://dev.azure.com/yourorg`
+     - **Project Name**: Your Azure DevOps project
+     - **Pipeline ID**: Numeric ID (found in pipeline URL)
+     - **Branch Name** (Optional): Specific branch to monitor
+     - **Personal Access Token**: Your PAT (see below)
+     - **Refresh Interval**: 30-300 seconds
+
+3. **Test and verify**
+   - Click "Test Connection" to validate settings
+   - Button will display current pipeline status
+
+### Setting up Pull Request Monitor
+
+1. **Add PR Checks action to Stream Deck**
+2. **Configure in Property Inspector**:
+   - Azure DevOps credentials (same as pipeline)
+   - Repository filter (all or specific)
+   - PR status filter (Active, Draft, etc.)
+   - Optional: Branch, creator, reviewer filters
+3. **Button shows PR count and status**
+
+## 🔑 Creating a Personal Access Token
+
+1. Sign in to your Azure DevOps organization
+2. Click on your profile picture → **Security** → **Personal access tokens**
+3. Click **"New Token"**
+4. Configure the token:
+   - **Name**: `Stream Deck Plugin`
+   - **Organization**: Select your organization
+   - **Expiration**: Set as needed (up to 1 year)
+   - **Scopes**: 
+     - ✅ Build → Read
+     - ✅ Code → Read (for PR monitoring)
+     - ✅ Work Items → Read (for upcoming features)
+5. Click **"Create"** and copy the token immediately
+6. Store it securely - you won't be able to see it again!
+
+## 👩‍💻 Development
+
+### Prerequisites
+- Node.js 20+
+- npm 10+
+- Stream Deck SDK CLI: `npm install -g @elgato/cli`
+- Azure DevOps account with PAT
+
+### Quick Start
+```bash
+# Clone and setup
+git clone https://github.com/SShadowS/azure-devops-stream-deck.git
+cd azure-devops-stream-deck
+npm install
+
+# Development (with auto-reload)
 npm run watch
 
-# Run tests
-npm test
+# Testing
+npm test                  # Run tests
+npm run test:watch       # Watch mode
+npm run test:coverage    # Coverage report
 
-# Run tests with coverage
-npm run test:coverage
+# Build & Package
+npm run build            # Build plugin
+streamdeck pack com.sshadows.azure-devops-info.sdPlugin  # Create .streamDeckPlugin
 ```
 
 ### Project Structure
 ```
-├── com.sshadows.azure-devops-info.sdPlugin/  # Plugin package
-│   ├── manifest.json                         # Plugin configuration
-│   ├── bin/plugin.js                         # Compiled plugin code
-│   ├── ui/                                   # Property Inspector UI
-│   └── imgs/                                  # Icons and images
-├── src/                                       # Source code
-│   ├── actions/                              # Stream Deck actions
-│   ├── services/                             # Azure DevOps services
-│   └── utils/                                # Utility functions
-└── tests/                                     # Test files
+azure-devops-stream-deck/
+├── com.sshadows.azure-devops-info.sdPlugin/
+│   ├── manifest.json        # Plugin metadata & actions
+│   ├── bin/
+│   │   └── plugin.js       # Compiled plugin (generated)
+│   ├── ui/                 # Property Inspector HTML/CSS
+│   │   ├── pipeline-status.html
+│   │   ├── pull-request-status.html
+│   │   └── *.css
+│   └── imgs/               # Action icons (multiple sizes)
+│       └── actions/
+│           ├── pipeline-status/
+│           └── pr-checks/
+├── src/
+│   ├── plugin.ts           # Main entry point
+│   ├── actions/            # Stream Deck action handlers
+│   │   ├── pipeline-status.ts
+│   │   └── pr-checks.ts
+│   ├── services/           # Azure DevOps API clients
+│   │   ├── azure-devops-client.ts
+│   │   └── pipeline-service.ts
+│   └── utils/              # Helpers & utilities
+│       ├── credential-manager.ts
+│       └── status-display-manager.ts
+├── .github/
+│   └── workflows/          # CI/CD pipelines
+│       └── ci.yml         # Test, build, release
+└── package.json           # Dependencies & scripts
 ```
 
-## Troubleshooting
+### Architecture
 
-### Connection Issues
-- **Error: Authentication failed**
-  - Verify your Personal Access Token is correct and hasn't expired
-  - Ensure the token has Build (read) permissions
-  - Check that the organization URL and project name are correct
+- **Actions**: Singleton pattern for managing multiple button instances
+- **Services**: Abstracted Azure DevOps API interactions with caching
+- **Security**: AES-256-GCM encryption for credential storage
+- **Performance**: Connection pooling, request debouncing, smart caching
+- **Testing**: Jest with 88% code coverage, mocked Stream Deck SDK
 
-- **Error: Pipeline not found**
-  - Verify the Pipeline ID is correct (numeric ID, not name)
-  - Ensure you have access to the pipeline in Azure DevOps
+## 🐛 Troubleshooting
 
-- **No updates appearing**
-  - Check the refresh interval isn't set too high
-  - Verify network connectivity
-  - Check Stream Deck logs: `%appdata%\Elgato\StreamDeck\logs\` (Windows) or `~/Library/Logs/ElgatoStreamDeck/` (macOS)
+### Common Issues
 
-### Performance
-- If experiencing high CPU usage, increase the refresh interval
-- The plugin uses intelligent caching to minimize API calls
+#### Authentication Failed
+- ✅ Verify PAT hasn't expired
+- ✅ Check token has required permissions (Build: Read, Code: Read)
+- ✅ Confirm organization URL format: `https://dev.azure.com/yourorg`
+- ✅ Ensure project name matches exactly (case-sensitive)
 
-## Security
+#### Pipeline Not Found
+- ✅ Use numeric Pipeline ID from URL (e.g., `123` from `.../pipelines/123`)
+- ✅ Verify you have access to the pipeline
+- ✅ Check project name spelling
 
-- Personal Access Tokens are encrypted using AES-256-GCM before storage
-- Tokens are never logged or transmitted except to Azure DevOps
-- Credentials are stored in Stream Deck's secure global settings
-- Token expiration is monitored and users are notified when renewal is needed
+#### No Updates / Connection Issues
+- ✅ Check logs: 
+  - Windows: `%appdata%\Elgato\StreamDeck\logs\`
+  - macOS: `~/Library/Logs/ElgatoStreamDeck/`
+- ✅ Verify network/proxy settings
+- ✅ Increase refresh interval if rate-limited
+- ✅ Try "Test Connection" button
 
-## Contributing
+#### High CPU Usage
+- Increase refresh interval (60+ seconds recommended)
+- Check for multiple instances monitoring same pipeline
+- Verify no connection errors causing retry loops
+
+### Debug Mode
+Enable detailed logging by editing `src/plugin.ts`:
+```typescript
+streamDeck.logger.setLevel(LogLevel.TRACE);
+```
+
+## 🔒 Security
+
+- **Encryption**: PATs encrypted with AES-256-GCM
+- **Storage**: Credentials stored in Stream Deck's secure settings
+- **Transmission**: Direct HTTPS to Azure DevOps only
+- **Logging**: Tokens never logged or exposed
+- **Expiration**: Automatic detection and user notification
+- **Best Practices**: 
+  - Use minimum required permissions
+  - Rotate tokens regularly
+  - Set appropriate expiration dates
+
+## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
+### Development Process
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+2. Create your feature branch: `git checkout -b feature/amazing-feature`
+3. Make your changes and test thoroughly
+4. Commit using conventional commits:
+   - `feat:` New feature
+   - `fix:` Bug fix
+   - `docs:` Documentation changes
+   - `test:` Test additions/changes
+   - `refactor:` Code refactoring
+5. Push to your fork: `git push origin feature/amazing-feature`
+6. Open a Pull Request
 
-## License
+### Commit Guidelines
+We use [Conventional Commits](https://www.conventionalcommits.org/) for automatic versioning:
+- `fix: correct pipeline status color` → Patch release (1.0.1)
+- `feat: add work item tracking` → Minor release (1.1.0)
+- `feat!: redesign API` or `BREAKING CHANGE:` → Major release (2.0.0)
+
+## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Acknowledgments
+## 🙏 Acknowledgments
 
-- Built with [Elgato Stream Deck SDK](https://docs.elgato.com/streamdeck/sdk/)
-- Uses [Azure DevOps Node API](https://github.com/microsoft/azure-devops-node-api)
+- Built with [Elgato Stream Deck SDK v2](https://docs.elgato.com/streamdeck/sdk/)
+- Powered by [Azure DevOps Node API](https://github.com/microsoft/azure-devops-node-api)
+- Icons and UI components from Stream Deck SDK
+- Community feedback and contributions
 
-## Support
+## 📬 Support
 
-For issues, questions, or suggestions, please [open an issue](https://github.com/yourusername/azure-devops-info/issues) on GitHub.
+- **Issues & Bugs**: [GitHub Issues](https://github.com/SShadowS/azure-devops-stream-deck/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/SShadowS/azure-devops-stream-deck/discussions)
+- **Latest Releases**: [GitHub Releases](https://github.com/SShadowS/azure-devops-stream-deck/releases)
+
+## 🚦 Project Status
+
+![Build Status](https://github.com/SShadowS/azure-devops-stream-deck/actions/workflows/ci.yml/badge.svg)
+![Test Coverage](https://img.shields.io/badge/coverage-88%25-brightgreen)
+![Version](https://img.shields.io/github/package-json/v/SShadowS/azure-devops-stream-deck)
+![Downloads](https://img.shields.io/github/downloads/SShadowS/azure-devops-stream-deck/total)
+
+---
+
+<div align="center">
+Made with ❤️ for the Stream Deck community
+</div>
