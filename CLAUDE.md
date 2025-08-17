@@ -205,6 +205,86 @@ npm run watch
 4. **Get current settings properly** in action's `onSendToPlugin` method using `await ev.action.getSettings()`
 5. **Don't assume `ev.payload.settings` exists** in data source requests - it's often undefined
 
+### CRITICAL FIX: Property Inspector UI Pattern
+
+**Problem**: Many Property Inspector UIs are broken because they use old-style HTML with custom CSS instead of proper SDPI Components.
+
+**Symptoms**:
+- Settings UI doesn't render properly
+- Dropdowns don't populate
+- Settings don't save
+- JavaScript errors in Stream Deck DevTools
+
+**Root Causes**:
+1. Using old HTML structure with `<div class="sdpi-wrapper">` and custom CSS files
+2. Referencing non-existent `sdpi-components.css` 
+3. Using inline `onclick` handlers instead of SDPI's built-in patterns
+4. Custom JavaScript event handling
+
+**✅ CORRECT Pattern (Pure SDPI Components)**:
+```html
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <title>Action Settings</title>
+    <meta charset="utf-8" />
+    <script src="sdpi-components.js"></script>
+</head>
+<body>
+    <!-- Use SDPI Components directly, no wrapper divs needed -->
+    <sdpi-item label="Organization URL">
+        <sdpi-textfield setting="orgUrl" placeholder="https://dev.azure.com/yourorg"></sdpi-textfield>
+    </sdpi-item>
+    
+    <sdpi-item label="Repository">
+        <sdpi-select setting="repository" datasource="getRepositories" placeholder="Select repository"></sdpi-select>
+    </sdpi-item>
+    
+    <sdpi-item label="">
+        <sdpi-button value="Test Connection" onclick="$pi.sendToPlugin({event: 'testConnection'})"></sdpi-button>
+    </sdpi-item>
+    
+    <sdpi-heading>Display Settings</sdpi-heading>
+    
+    <sdpi-item label="Mode">
+        <sdpi-select setting="mode" default="simple">
+            <option value="simple">Simple</option>
+            <option value="detailed">Detailed</option>
+        </sdpi-select>
+    </sdpi-item>
+</body>
+</html>
+```
+
+**❌ INCORRECT Pattern (Old Style)**:
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="sdpi-components.css"> <!-- This file doesn't exist! -->
+    <link rel="stylesheet" href="custom.css">
+</head>
+<body>
+    <div class="sdpi-wrapper"> <!-- Don't use wrapper divs -->
+        <div class="sdpi-item">
+            <div class="sdpi-item-label">Organization URL</div>
+            <input class="sdpi-item-value" type="text" setting="orgUrl"> <!-- Wrong! -->
+        </div>
+        <button onclick="window.streamDeckClient?.send('test', {})"> <!-- Wrong event handling -->
+    </div>
+</body>
+</html>
+```
+
+**Fix Checklist**:
+1. ✅ Include only `sdpi-components.js` script (no CSS files)
+2. ✅ Use SDPI component tags directly (`<sdpi-item>`, `<sdpi-textfield>`, etc.)
+3. ✅ Remove all wrapper divs and custom classes
+4. ✅ Use `$pi.sendToPlugin()` for button events
+5. ✅ Delete any custom CSS files for the Property Inspector
+6. ✅ Use `datasource` attribute for dynamic dropdowns
+7. ✅ Keep HTML minimal - let SDPI Components handle the UI
+
 ## Common Stream Deck Plugin Patterns
 
 Based on the official SDK examples, here are the key patterns and best practices:
@@ -361,3 +441,205 @@ export interface ActionState {
 - **Async Operations**: Return promises from lifecycle methods for proper sequencing
 - **Settings Debouncing**: Always debounce `onDidReceiveSettings` to prevent rapid processing
 - **Local State Storage**: Store settings in ActionState instead of calling `action.getSettings()`
+- **SOLID Principles**: Follow SOLID principles for maintainable, testable code (see section below)
+
+## Code Quality Principles
+
+### SOLID Principles
+**We commit to following SOLID principles in all new code to ensure maintainability, testability, and flexibility.**
+
+#### S - Single Responsibility Principle (SRP)
+Each class should have only one reason to change.
+
+**✅ Good Example:**
+```typescript
+// Each service has a single, focused responsibility
+class PipelineService {
+    // Only responsible for pipeline-related operations
+    async getPipelineStatus(id: number) { ... }
+}
+
+class CredentialManager {
+    // Only responsible for credential encryption/decryption
+    encrypt(token: string) { ... }
+    decrypt(token: string) { ... }
+}
+```
+
+**❌ Current Violation:**
+```typescript
+// Action classes are responsible for BOTH business logic AND creating dependencies
+class SprintProgressAction {
+    constructor() {
+        // Creating dependencies - not its responsibility!
+        this.sprintService = new SprintService();
+        this.credentialManager = new CredentialManager();
+    }
+}
+```
+
+#### O - Open/Closed Principle (OCP)
+Software entities should be open for extension but closed for modification.
+
+**✅ Preferred Pattern:**
+```typescript
+// Define abstractions that can be extended without modifying existing code
+interface IStatusDisplay {
+    formatStatus(status: string): string;
+}
+
+// Extend through implementation, not modification
+class PipelineStatusDisplay implements IStatusDisplay { ... }
+class BuildStatusDisplay implements IStatusDisplay { ... }
+```
+
+#### L - Liskov Substitution Principle (LSP)
+Objects of a superclass should be replaceable with objects of its subclasses without breaking the application.
+
+**✅ Good Practice:**
+```typescript
+// Any implementation of ISprintService can be used interchangeably
+function updateSprintDisplay(service: ISprintService) {
+    // Works with any ISprintService implementation
+    const metrics = await service.getMetrics();
+}
+```
+
+#### I - Interface Segregation Principle (ISP)
+Clients should not be forced to depend on interfaces they don't use.
+
+**✅ Preferred Pattern:**
+```typescript
+// Specific, focused interfaces
+interface ICredentialReader {
+    decrypt(token: string): string;
+}
+
+interface ICredentialWriter {
+    encrypt(token: string): string;
+}
+
+// Classes can implement only what they need
+class ReadOnlyCredentialService implements ICredentialReader { ... }
+```
+
+#### D - Dependency Inversion Principle (DIP)
+High-level modules should not depend on low-level modules. Both should depend on abstractions.
+
+**❌ Current Problem in Action Classes:**
+```typescript
+// High-level action depends directly on low-level services
+class SprintProgressAction {
+    constructor() {
+        this.sprintService = new SprintService(); // Direct dependency!
+        this.credentialManager = new CredentialManager(); // Direct dependency!
+    }
+}
+```
+
+**✅ Solution - Dependency Injection:**
+```typescript
+// Define abstractions
+interface ISprintService {
+    getSprintMetrics(settings: SprintSettings): Promise<SprintMetrics>;
+}
+
+interface ICredentialManager {
+    decrypt(token: string): string;
+    encrypt(token: string): string;
+}
+
+// Depend on abstractions, inject dependencies
+class SprintProgressAction {
+    constructor(
+        private sprintService: ISprintService,
+        private credentialManager: ICredentialManager,
+        private stateManager: IActionStateManager
+    ) {
+        super();
+    }
+}
+
+// In production
+const action = new SprintProgressAction(
+    new SprintService(logger),
+    new CredentialManager(logger),
+    new ActionStateManager()
+);
+
+// In tests - inject mocks
+const action = new SprintProgressAction(
+    mockSprintService,
+    mockCredentialManager,
+    mockStateManager
+);
+```
+
+### Dependency Injection Pattern for New Code
+
+When creating new action classes or services, use constructor injection:
+
+```typescript
+// 1. Define interfaces for dependencies
+interface IDependency {
+    doSomething(): Promise<void>;
+}
+
+// 2. Accept dependencies through constructor
+class NewAction extends SingletonAction {
+    constructor(
+        private dependency: IDependency = new DefaultDependency()
+    ) {
+        super();
+    }
+}
+
+// 3. This allows for:
+// - Easy testing with mocks
+// - Swapping implementations
+// - Clear dependencies
+// - Better separation of concerns
+```
+
+### Testing Benefits of SOLID Principles
+
+Following SOLID principles dramatically improves testability:
+
+1. **Mockable Dependencies**: Can inject test doubles instead of real services
+2. **Isolated Testing**: Each class can be tested independently
+3. **Predictable Behavior**: Clear contracts through interfaces
+4. **Maintainable Tests**: Changes to implementations don't break tests
+
+**Example Test with Dependency Injection:**
+```typescript
+describe('SprintProgressAction', () => {
+    it('should decrypt token on initialization', async () => {
+        // Arrange - inject mocks
+        const mockCredentialManager = {
+            decrypt: jest.fn().mockReturnValue('decrypted-token')
+        };
+        const action = new SprintProgressAction(
+            mockSprintService,
+            mockCredentialManager,
+            mockStateManager
+        );
+        
+        // Act
+        await action.onWillAppear(event);
+        
+        // Assert - mocks are actually called!
+        expect(mockCredentialManager.decrypt).toHaveBeenCalledWith('encrypted-token');
+    });
+});
+```
+
+### Migration Strategy for Existing Code
+
+For existing action classes with hardcoded dependencies:
+
+1. **Phase 1**: Add optional constructor parameters (backward compatible)
+2. **Phase 2**: Extract interfaces from existing services
+3. **Phase 3**: Update tests to use dependency injection
+4. **Phase 4**: Refactor creation sites to use proper DI
+
+This ensures gradual migration without breaking existing functionality.

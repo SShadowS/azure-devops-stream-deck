@@ -14,14 +14,22 @@ import { PRService } from "../services/pr-service";
 import { PRDisplayManager } from "../utils/pr-display-manager";
 import { CredentialManager } from "../utils/credential-manager";
 import { performanceOptimizer } from "../utils/performance-optimizer";
+import { ProfileManager } from "../services/profile-manager";
+import { AzureDevOpsConnectionPool } from "../services/connection-pool";
 
 /**
  * Settings interface for PR Checks action
  */
 interface PRChecksSettings {
+    // Profile-based connection
+    profileId?: string;
+    
+    // Legacy connection settings (for migration)
     organizationUrl?: string;
     projectName?: string;
     personalAccessToken?: string;
+    
+    // PR-specific settings
     repository?: string;
     refreshInterval?: number;
     showOnlyMyPRs?: boolean;
@@ -40,6 +48,8 @@ export class PRChecks extends SingletonAction<PRChecksSettings> {
     private pollIntervals = new Map<string, NodeJS.Timeout>();
     private prServices = new Map<string, PRService>();
     private credentialManager = new CredentialManager(streamDeck.logger);
+    private profileManager = ProfileManager.getInstance();
+    private connectionPool = AzureDevOpsConnectionPool.getInstance();
 
     /**
      * Called when the action appears on Stream Deck
@@ -49,8 +59,13 @@ export class PRChecks extends SingletonAction<PRChecksSettings> {
 
         streamDeck.logger.trace("PR Checks action appearing", { context: ev.action.id });
 
+        // Initialize ProfileManager
+        await this.profileManager.initialize();
+        
+        // Check for legacy settings and migrate if necessary
+        let settings = await this.migrateSettingsIfNeeded(ev.action as KeyAction<PRChecksSettings>, ev.payload.settings);
+
         // Initialize with default settings if needed
-        const settings = ev.payload.settings;
         if (!settings.refreshInterval) {
             const defaultSettings: PRChecksSettings = {
                 ...settings,
@@ -61,11 +76,12 @@ export class PRChecks extends SingletonAction<PRChecksSettings> {
                 showConflictsOnly: false
             };
             await ev.action.setSettings(defaultSettings);
+            settings = defaultSettings;
         }
 
-        // Start polling if we have credentials
-        if (settings.organizationUrl && settings.projectName && settings.personalAccessToken) {
-            await this.startPolling(ev.action, settings);
+        // Start polling if we have credentials (profile or legacy)
+        if (this.hasValidConfiguration(settings)) {
+            await this.startPolling(ev.action as KeyAction<PRChecksSettings>, settings);
         } else {
             // Show configuration required message
             await ev.action.setTitle("Configure\nin Settings");
@@ -88,6 +104,12 @@ export class PRChecks extends SingletonAction<PRChecksSettings> {
 
         // Clean up service instance
         this.prServices.delete(ev.action.id);
+        
+        // Release connection from pool
+        const settings = ev.payload.settings;
+        if (settings.profileId) {
+            this.connectionPool.releaseProfileConnection(settings.profileId);
+        }
     }
 
     /**
@@ -98,23 +120,9 @@ export class PRChecks extends SingletonAction<PRChecksSettings> {
 
         streamDeck.logger.trace("PR Checks settings updated", { 
             context: ev.action.id,
-            hasCredentials: !!(ev.payload.settings.organizationUrl && ev.payload.settings.personalAccessToken)
+            hasProfile: !!ev.payload.settings.profileId,
+            hasLegacy: !!(ev.payload.settings.organizationUrl && ev.payload.settings.personalAccessToken)
         });
-
-        // Encrypt the PAT if it's not already encrypted (check if it's plain text)
-        if (ev.payload.settings.personalAccessToken && !this.isEncrypted(ev.payload.settings.personalAccessToken)) {
-            try {
-                const encryptedPAT = this.credentialManager.encrypt(ev.payload.settings.personalAccessToken);
-                ev.payload.settings.personalAccessToken = encryptedPAT;
-                
-                // Save the updated settings with encrypted PAT
-                await ev.action.setSettings(ev.payload.settings);
-                streamDeck.logger.debug("Personal Access Token encrypted and saved");
-            } catch (error) {
-                streamDeck.logger.error("Failed to encrypt PAT", error);
-                return;
-            }
-        }
 
         // Restart polling with new settings
         const interval = this.pollIntervals.get(ev.action.id);
@@ -123,10 +131,8 @@ export class PRChecks extends SingletonAction<PRChecksSettings> {
             this.pollIntervals.delete(ev.action.id);
         }
 
-        if (ev.payload.settings.organizationUrl && 
-            ev.payload.settings.projectName && 
-            ev.payload.settings.personalAccessToken) {
-            await this.startPolling(ev.action, ev.payload.settings);
+        if (this.hasValidConfiguration(ev.payload.settings)) {
+            await this.startPolling(ev.action as KeyAction<PRChecksSettings>, ev.payload.settings);
         }
     }
 
@@ -162,11 +168,28 @@ export class PRChecks extends SingletonAction<PRChecksSettings> {
             payload: ev.payload 
         });
 
-        // Check if the payload is requesting a data source
-        if (ev.payload instanceof Object && "event" in ev.payload && ev.payload.event === "getRepositories") {
-            // Get current settings from the action
-            const currentSettings = await ev.action.getSettings();
-            await this.sendRepositoryList(ev.action as KeyAction<PRChecksSettings>, currentSettings);
+        const payload = ev.payload as any;
+        if (!payload?.event) return;
+
+        switch (payload.event) {
+            case "getProfiles":
+                await this.sendProfileList();
+                break;
+                
+            case "getRepositories":
+                // Get current settings from the action
+                const currentSettings = await ev.action.getSettings();
+                await this.sendRepositoryList(ev.action as KeyAction<PRChecksSettings>, currentSettings);
+                break;
+                
+            case "openConfigManager":
+                // Show alert to indicate action
+                await ev.action.showAlert();
+                streamDeck.logger.info("User requested to open Configuration Manager");
+                break;
+                
+            default:
+                streamDeck.logger.debug("Unknown event from Property Inspector", { event: payload.event });
         }
     }
 
@@ -175,29 +198,49 @@ export class PRChecks extends SingletonAction<PRChecksSettings> {
      */
     private async startPolling(action: KeyAction<PRChecksSettings>, settings: PRChecksSettings): Promise<void> {
         try {
-            // Handle both encrypted and plain text PATs
+            let organizationUrl: string;
             let decryptedPAT: string;
-            if (this.isEncrypted(settings.personalAccessToken!)) {
-                decryptedPAT = this.credentialManager.decrypt(settings.personalAccessToken!);
+            let projectName: string | undefined;
+            
+            if (settings.profileId) {
+                // Use profile-based configuration
+                const config = await this.profileManager.getDecryptedConfig(settings.profileId);
+                if (!config) {
+                    throw new Error("Profile not found or invalid");
+                }
+                organizationUrl = config.organizationUrl;
+                decryptedPAT = config.personalAccessToken;
+                projectName = config.projectName;
+            } else if (settings.organizationUrl && settings.personalAccessToken) {
+                // Use legacy configuration
+                organizationUrl = settings.organizationUrl;
+                projectName = settings.projectName;
+                
+                // Handle both encrypted and plain text PATs
+                if (this.isEncrypted(settings.personalAccessToken)) {
+                    decryptedPAT = this.credentialManager.decrypt(settings.personalAccessToken);
+                } else {
+                    decryptedPAT = settings.personalAccessToken;
+                }
             } else {
-                // If it's not encrypted yet, use as-is (this handles the transition period)
-                decryptedPAT = settings.personalAccessToken!;
+                throw new Error("No valid configuration found");
             }
             
             // Create or get PR service
             let service = this.prServices.get(action.id);
-            if (!service || !service.hasValidCredentials(settings.organizationUrl!, decryptedPAT)) {
-                service = new PRService(settings.organizationUrl!, decryptedPAT);
+            if (!service || !service.hasValidCredentials(organizationUrl, decryptedPAT)) {
+                service = new PRService(organizationUrl, decryptedPAT);
                 this.prServices.set(action.id, service);
             }
 
-            // Initial update
-            await this.updatePRStatus(action, service, settings);
+            // Initial update with merged project name
+            const mergedSettings = { ...settings, projectName: projectName || settings.projectName };
+            await this.updatePRStatus(action, service, mergedSettings);
 
             // Set up polling interval
             const intervalMs = (settings.refreshInterval || 60) * 1000;
             const interval = setInterval(async () => {
-                await this.updatePRStatus(action, service, settings);
+                await this.updatePRStatus(action, service, mergedSettings);
             }, intervalMs);
 
             this.pollIntervals.set(action.id, interval);
@@ -264,28 +307,46 @@ export class PRChecks extends SingletonAction<PRChecksSettings> {
      */
     private async sendRepositoryList(action: KeyAction<PRChecksSettings>, settings: PRChecksSettings): Promise<void> {
         try {
-            if (!settings.organizationUrl || !settings.personalAccessToken || !settings.projectName) {
+            let organizationUrl: string;
+            let decryptedPAT: string;
+            let projectName: string;
+            
+            if (settings.profileId) {
+                // Use profile-based configuration
+                const config = await this.profileManager.getDecryptedConfig(settings.profileId);
+                if (!config) {
+                    // Send empty list if profile not found
+                    streamDeck.ui.current?.sendToPropertyInspector({
+                        event: "getRepositories",
+                        items: [{ value: "all", label: "All Repositories" }]
+                    });
+                    return;
+                }
+                organizationUrl = config.organizationUrl;
+                decryptedPAT = config.personalAccessToken;
+                projectName = config.projectName || settings.projectName!;
+            } else if (settings.organizationUrl && settings.personalAccessToken && settings.projectName) {
+                // Use legacy configuration
+                organizationUrl = settings.organizationUrl;
+                projectName = settings.projectName;
+                
+                // Handle both encrypted and plain text PATs
+                if (this.isEncrypted(settings.personalAccessToken)) {
+                    decryptedPAT = this.credentialManager.decrypt(settings.personalAccessToken);
+                } else {
+                    decryptedPAT = settings.personalAccessToken;
+                }
+            } else {
                 // Send empty list if settings are not complete
                 streamDeck.ui.current?.sendToPropertyInspector({
                     event: "getRepositories",
-                    items: [
-                        { value: "all", label: "All Repositories" }
-                    ]
+                    items: [{ value: "all", label: "All Repositories" }]
                 });
                 return;
             }
 
-            // Handle both encrypted and plain text PATs
-            let decryptedPAT: string;
-            if (this.isEncrypted(settings.personalAccessToken)) {
-                decryptedPAT = this.credentialManager.decrypt(settings.personalAccessToken);
-            } else {
-                // If it's not encrypted yet, use as-is (this handles the transition period)
-                decryptedPAT = settings.personalAccessToken;
-            }
-
-            const service = new PRService(settings.organizationUrl, decryptedPAT);
-            const repositories = await service.getRepositories(settings.projectName);
+            const service = new PRService(organizationUrl, decryptedPAT);
+            const repositories = await service.getRepositories(projectName);
 
             // Send repositories to Property Inspector following official data source pattern
             streamDeck.ui.current?.sendToPropertyInspector({
@@ -309,6 +370,93 @@ export class PRChecks extends SingletonAction<PRChecksSettings> {
                 ]
             });
         }
+    }
+
+    /**
+     * Send profile list to Property Inspector
+     */
+    private async sendProfileList(): Promise<void> {
+        try {
+            const profiles = await this.profileManager.getAllProfiles();
+            const defaultProfile = await this.profileManager.getDefaultProfile();
+            
+            const profileList = profiles.map(profile => ({
+                id: profile.id,
+                name: profile.name,
+                isDefault: profile.id === defaultProfile?.id
+            }));
+            
+            await streamDeck.ui.current?.sendToPropertyInspector({
+                event: "profileList",
+                profiles: profileList
+            });
+            
+            streamDeck.logger.debug(`Sent ${profileList.length} profiles to Property Inspector`);
+        } catch (error) {
+            streamDeck.logger.error("Failed to send profile list", error);
+        }
+    }
+
+    /**
+     * Migrate legacy settings to use profiles if needed
+     */
+    private async migrateSettingsIfNeeded(action: KeyAction<PRChecksSettings>, settings: PRChecksSettings): Promise<PRChecksSettings> {
+        // If already using profile, no migration needed
+        if (settings.profileId) {
+            return settings;
+        }
+        
+        // Check if we have legacy settings to migrate
+        if (settings.organizationUrl && settings.personalAccessToken) {
+            streamDeck.logger.info("Migrating legacy PR Checks settings to profile", { actionId: action.id });
+            
+            try {
+                const migrationResult = await this.profileManager.migrateFromLegacySettings({
+                    organizationUrl: settings.organizationUrl,
+                    projectName: settings.projectName,
+                    personalAccessToken: settings.personalAccessToken
+                });
+                
+                // Update settings to use the profile
+                const newSettings: PRChecksSettings = {
+                    ...settings,
+                    profileId: migrationResult.profileId,
+                    // Clear legacy fields
+                    organizationUrl: undefined,
+                    projectName: undefined,
+                    personalAccessToken: undefined
+                };
+                
+                // Save the updated settings
+                await action.setSettings(newSettings);
+                
+                streamDeck.logger.info("Successfully migrated to profile", { 
+                    profileId: migrationResult.profileId,
+                    profileName: migrationResult.profileName
+                });
+                
+                return newSettings;
+            } catch (error) {
+                streamDeck.logger.error("Failed to migrate settings", error);
+                // Return original settings if migration fails
+                return settings;
+            }
+        }
+        
+        return settings;
+    }
+
+    /**
+     * Check if settings have valid configuration (profile or legacy)
+     */
+    private hasValidConfiguration(settings: PRChecksSettings): boolean {
+        // Check if profile is configured
+        if (settings.profileId) {
+            return true;
+        }
+        
+        // Check legacy configuration
+        return !!(settings.organizationUrl && settings.projectName && settings.personalAccessToken);
     }
 
 }

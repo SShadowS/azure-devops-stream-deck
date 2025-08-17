@@ -1,11 +1,14 @@
 import streamDeck from '@elgato/streamdeck';
 import { AzureDevOpsClient, AzureDevOpsConfig } from './azure-devops-client';
+import { ProfileManager } from './profile-manager';
+import { ProfileChangeEvent } from '../types/profiles';
 
 interface ConnectionInfo {
     client: AzureDevOpsClient;
     refCount: number;
     lastUsed: Date;
     config: AzureDevOpsConfig;
+    profileId?: string; // Track which profile this connection is for
 }
 
 /**
@@ -22,6 +25,7 @@ export class AzureDevOpsConnectionPool {
 
     private constructor() {
         this.startCleanupTimer();
+        this.setupProfileChangeListener();
     }
 
     /**
@@ -83,6 +87,134 @@ export class AzureDevOpsConnectionPool {
             this.logger.error('Failed to create connection', { key, error });
             throw error;
         }
+    }
+
+    /**
+     * Gets a connection using a profile ID.
+     * The profile configuration is fetched from ProfileManager.
+     */
+    async getConnectionByProfile(profileId: string): Promise<AzureDevOpsClient | null> {
+        const profileManager = ProfileManager.getInstance();
+        const config = await profileManager.getDecryptedConfig(profileId);
+        
+        if (!config) {
+            this.logger.error('Profile not found', { profileId });
+            return null;
+        }
+
+        // Use profile ID as the key for profile-based connections
+        const key = `profile:${profileId}`;
+        
+        this.logger.debug('Getting connection by profile', { 
+            profileId, 
+            key,
+            exists: this.connections.has(key),
+            totalConnections: this.connections.size 
+        });
+
+        if (this.connections.has(key)) {
+            const conn = this.connections.get(key)!;
+            conn.refCount++;
+            conn.lastUsed = new Date();
+            
+            this.logger.debug('Reusing existing profile connection', { 
+                profileId, 
+                refCount: conn.refCount 
+            });
+            
+            return conn.client;
+        }
+
+        try {
+            const client = new AzureDevOpsClient();
+            await client.connect(config);
+            
+            const connectionInfo: ConnectionInfo = {
+                client,
+                refCount: 1,
+                lastUsed: new Date(),
+                config,
+                profileId
+            };
+            
+            this.connections.set(key, connectionInfo);
+            
+            this.logger.info('Created new profile connection', { 
+                profileId, 
+                totalConnections: this.connections.size 
+            });
+            
+            return client;
+        } catch (error) {
+            this.logger.error('Failed to create profile connection', { profileId, error });
+            throw error;
+        }
+    }
+
+    /**
+     * Releases a profile-based connection.
+     */
+    releaseProfileConnection(profileId: string): void {
+        const key = `profile:${profileId}`;
+        const conn = this.connections.get(key);
+        
+        if (conn) {
+            conn.refCount--;
+            conn.lastUsed = new Date();
+            
+            this.logger.debug('Released profile connection', { 
+                profileId,
+                refCount: conn.refCount 
+            });
+            
+            if (conn.refCount <= 0) {
+                this.logger.debug('Profile connection eligible for cleanup', { profileId });
+            }
+        }
+    }
+
+    /**
+     * Invalidates connections for a specific profile.
+     * Called when a profile is updated or deleted.
+     */
+    invalidateProfileConnections(profileId: string): void {
+        const key = `profile:${profileId}`;
+        const conn = this.connections.get(key);
+        
+        if (conn) {
+            this.logger.info('Invalidating profile connection', { 
+                profileId,
+                refCount: conn.refCount 
+            });
+            
+            // Disconnect the client
+            conn.client.disconnect().catch(error => {
+                this.logger.error('Error disconnecting client', { profileId, error });
+            });
+            
+            // Remove from pool
+            this.connections.delete(key);
+        }
+    }
+
+    /**
+     * Sets up listener for profile changes to invalidate connections.
+     */
+    private setupProfileChangeListener(): void {
+        const profileManager = ProfileManager.getInstance();
+        
+        profileManager.onProfileChange((event: ProfileChangeEvent) => {
+            if (event.type === 'updated' || event.type === 'deleted') {
+                this.invalidateProfileConnections(event.profileId);
+                
+                // If profile was updated, connections will be recreated on next use
+                // If profile was deleted, connections are permanently removed
+                this.logger.info('Profile change detected, invalidated connections', {
+                    type: event.type,
+                    profileId: event.profileId
+                });
+            }
+        });
     }
 
     /**

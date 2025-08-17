@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+
+<head lang="en">
+    <title>Build Queue Manager Settings</title>
+    <meta charset="utf-8" />
+    <script src="sdpi-components.js"></script>
+</head>
+
+<body>
+    <!--
+        Learn more about property inspector components at https://sdpi-components.dev/docs/components
+    -->
+    
+    <sdpi-heading>Connection Settings</sdpi-heading>
+    
+    <sdpi-item label="Organization URL">
+        <sdpi-textfield setting="orgUrl" placeholder="https://dev.azure.com/yourorg"></sdpi-textfield>
+    </sdpi-item>
+    
+    <sdpi-item label="Project Name">
+        <sdpi-textfield setting="projectName" placeholder="MyProject"></sdpi-textfield>
+    </sdpi-item>
+    
+    <sdpi-item label="Build Definition (Optional)">
+        <sdpi-select setting="buildDefinitionName" datasource="getBuildDefinitions" placeholder="All definitions"></sdpi-select>
+    </sdpi-item>
+    
+    <sdpi-item label="Agent Pool (Optional)">
+        <sdpi-select setting="agentPool" datasource="getAgentPools" placeholder="All pools"></sdpi-select>
+    </sdpi-item>
+    
+    <sdpi-item label="Personal Access Token">
+        <sdpi-password setting="pat" placeholder="Enter PAT token"></sdpi-password>
+    </sdpi-item>
+    
+    <sdpi-item label="">
+        <sdpi-button value="Test Connection" onclick="$pi.sendToPlugin({event: 'testConnection'})"></sdpi-button>
+    </sdpi-item>
+    
+    <sdpi-heading>Queue Settings</sdpi-heading>
+    
+    <sdpi-item label="Display Mode">
+        <sdpi-select setting="displayMode" default="queue">
+            <option value="queue">Queue Status</option>
+            <option value="agents">Agent Status</option>
+            <option value="running">Running Builds</option>
+            <option value="waiting">Waiting Builds</option>
+            <option value="summary">Queue Summary</option>
+        </sdpi-select>
+    </sdpi-item>
+    
+    <sdpi-item label="Enable Quick Trigger">
+        <sdpi-checkbox setting="enableQuickTrigger" default="false" label="Allow triggering builds on button press"></sdpi-checkbox>
+    </sdpi-item>
+    
+    <sdpi-item label="Default Branch">
+        <sdpi-textfield setting="defaultBranch" placeholder="main"></sdpi-textfield>
+    </sdpi-item>
+    
+    <sdpi-item label="Queue Threshold">
+        <sdpi-range setting="queueThreshold" min="1" max="10" default="3" showlabels="true"></sdpi-range>
+    </sdpi-item>
+    
+    <sdpi-item label="Auto-Cancel Duplicates">
+        <sdpi-checkbox setting="autoCancelDuplicates" default="false" label="Cancel duplicate builds in queue"></sdpi-checkbox>
+    </sdpi-item>
+    
+    <sdpi-item label="Refresh Interval">
+        <sdpi-range setting="refreshInterval" min="15" max="300" step="15" default="30" showlabels="true"></sdpi-range>
+    </sdpi-item>
+    
+    <sdpi-item type="textarea" label="Queue Info">
+        <details class="message info">
+            <summary>About Build Queue Manager</summary>
+            This action manages and monitors Azure DevOps build queues:
+            • Queue Status: Shows number of waiting and running builds
+            • Agent Monitoring: Track agent availability and utilization
+            • Quick Trigger: Start builds directly from Stream Deck
+            • Queue Management: View and manage queued builds
+            
+            Queue Status Colors:
+            🟢 Green: Idle (no builds waiting)
+            🟡 Yellow: Normal (1-2 builds waiting)
+            🟠 Orange: Busy (3-5 builds waiting)
+            🔴 Red: Overloaded (>5 builds waiting)
+        </details>
+    </sdpi-item>
+    
+    <sdpi-item type="textarea" label="PAT Setup">
+        <details class="message">
+            <summary>Personal Access Token Setup</summary>
+            To create a PAT token:
+            1. Go to Azure DevOps → User Settings → Personal Access Tokens
+            2. Click "New Token"
+            3. Select organization and set expiration
+            4. Select scopes: Build (Read & Execute), Agent Pools (Read)
+            5. Click "Create" and copy the token
+        </details>
+    </sdpi-item>
+</body>
+</html>

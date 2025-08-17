@@ -6,7 +6,26 @@
 
 A comprehensive Stream Deck plugin that provides real-time monitoring and control of your Azure DevOps environment directly from your Stream Deck.
 
+## 🆕 Version 2.0 - Profile-Based Configuration
+
+The plugin now features a powerful profile-based configuration system:
+- **Multiple Profiles**: Manage multiple Azure DevOps organizations and projects
+- **Centralized Management**: Configure credentials once, use everywhere
+- **Quick Switching**: Easily switch between different environments
+- **Secure Storage**: All credentials are encrypted using AES-256-GCM
+- **Import/Export**: Share configurations with your team (without sensitive data)
+
+See the [Profile Configuration Guide](docs/PROFILE_CONFIGURATION_GUIDE.md) for detailed setup instructions.
+
 ## 🎯 Current Features
+
+### ✅ Configuration Manager
+- **Profile Management**: Create and manage multiple Azure DevOps configurations
+- **Centralized Credentials**: Store credentials once, use across all actions
+- **Connection Testing**: Verify connections before saving
+- **Profile Import/Export**: Share configurations with team members
+- **Profile Duplication**: Quickly create similar configurations
+- **Default Profile**: Set a default profile for new actions
 
 ### ✅ Pipeline Status Monitor
 - **Real-time Build Status**: View the current status of your Azure DevOps pipelines

@@ -2,7 +2,7 @@
 <html>
 
 <head lang="en">
-    <title>Pipeline Status Settings</title>
+    <title>{{ACTION_NAME}} Settings</title>
     <meta charset="utf-8" />
     <script src="sdpi-components.js"></script>
 </head>
@@ -21,16 +21,8 @@
         <sdpi-button value="Manage Profiles" onclick="$pi.sendToPlugin({event: 'openConfigManager'})"></sdpi-button>
     </sdpi-item>
     
-    <!-- Pipeline Settings Section -->
-    <sdpi-heading>Pipeline Settings</sdpi-heading>
-    
-    <sdpi-item label="Pipeline ID">
-        <sdpi-textfield setting="pipelineId" pattern="[0-9]*" placeholder="123"></sdpi-textfield>
-    </sdpi-item>
-    
-    <sdpi-item label="Branch Name (Optional)">
-        <sdpi-textfield setting="branchName" placeholder="main, develop, or refs/heads/main"></sdpi-textfield>
-    </sdpi-item>
+    <!-- ACTION-SPECIFIC SETTINGS GO HERE -->
+    {{ACTION_SPECIFIC_SETTINGS}}
     
     <!-- Display Options Section -->
     <sdpi-heading>Display Options</sdpi-heading>
@@ -41,21 +33,7 @@
         </sdpi-range>
     </sdpi-item>
     
-    <sdpi-item label="Display Format">
-        <sdpi-select setting="displayFormat" default="both">
-            <option value="icon">Icon Only</option>
-            <option value="text">Text Only</option>
-            <option value="both">Icon and Text</option>
-        </sdpi-select>
-    </sdpi-item>
-    
-    <sdpi-item label="Show Build Number">
-        <sdpi-checkbox setting="showBuildNumber" default="true"></sdpi-checkbox>
-    </sdpi-item>
-    
-    <sdpi-item label="Show Duration">
-        <sdpi-checkbox setting="showDuration" default="false"></sdpi-checkbox>
-    </sdpi-item>
+    {{ADDITIONAL_DISPLAY_OPTIONS}}
     
     <script>
         // Handle messages from plugin

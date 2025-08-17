@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+
+<head lang="en">
+    <title>Release Pipeline Monitor Settings</title>
+    <meta charset="utf-8" />
+    <script src="sdpi-components.js"></script>
+</head>
+
+<body>
+    <!--
+        Learn more about property inspector components at https://sdpi-components.dev/docs/components
+    -->
+    
+    <sdpi-heading>Connection Settings</sdpi-heading>
+    
+    <sdpi-item label="Organization URL">
+        <sdpi-textfield setting="orgUrl" placeholder="https://dev.azure.com/yourorg"></sdpi-textfield>
+    </sdpi-item>
+    
+    <sdpi-item label="Project Name">
+        <sdpi-textfield setting="projectName" placeholder="MyProject"></sdpi-textfield>
+    </sdpi-item>
+    
+    <sdpi-item label="Release Definition">
+        <sdpi-select setting="releaseDefinitionName" datasource="getReleaseDefinitions" placeholder="Select release definition"></sdpi-select>
+    </sdpi-item>
+    
+    <sdpi-item label="Environment">
+        <sdpi-select setting="environment" datasource="getEnvironments" placeholder="Select environment"></sdpi-select>
+    </sdpi-item>
+    
+    <sdpi-item label="Personal Access Token">
+        <sdpi-password setting="pat" placeholder="Enter PAT token"></sdpi-password>
+    </sdpi-item>
+    
+    <sdpi-item label="">
+        <sdpi-button value="Test Connection" onclick="$pi.sendToPlugin({event: 'testConnection'})"></sdpi-button>
+    </sdpi-item>
+    
+    <sdpi-heading>Display Settings</sdpi-heading>
+    
+    <sdpi-item label="Display Mode">
+        <sdpi-select setting="displayMode" default="status">
+            <option value="status">Deployment Status</option>
+            <option value="version">Version Number</option>
+            <option value="environment">Environment Status</option>
+            <option value="history">Deployment History</option>
+            <option value="detailed">Detailed View</option>
+        </sdpi-select>
+    </sdpi-item>
+    
+    <sdpi-item label="Show Deployment Time">
+        <sdpi-checkbox setting="showDeploymentTime" default="true" label="Display deployment timestamp"></sdpi-checkbox>
+    </sdpi-item>
+    
+    <sdpi-item label="Track All Environments">
+        <sdpi-checkbox setting="trackAllEnvironments" default="false" label="Monitor all environments"></sdpi-checkbox>
+    </sdpi-item>
+    
+    <sdpi-item label="Auto-Approve">
+        <sdpi-checkbox setting="autoApprove" default="false" label="Enable one-click approval"></sdpi-checkbox>
+    </sdpi-item>
+    
+    <sdpi-item label="Refresh Interval">
+        <sdpi-range setting="refreshInterval" min="30" max="600" step="30" default="60" showlabels="true"></sdpi-range>
+    </sdpi-item>
+    
+    <sdpi-item type="textarea" label="Release Info">
+        <details class="message info">
+            <summary>About Release Pipeline Monitor</summary>
+            This action monitors Azure DevOps release pipelines across environments:
+            • Deployment Status: Success, In Progress, Failed, Pending Approval
+            • Environment Tracking: Dev, QA, Staging, Production
+            • Version Management: Track deployed versions per environment
+            • Approval Workflow: One-click approval from Stream Deck
+            
+            Status Colors:
+            🟢 Green: Successfully deployed
+            🟡 Yellow: In progress or pending approval
+            🔴 Red: Failed deployment
+            🔵 Blue: Not deployed
+            ⚪ Gray: Unknown status
+        </details>
+    </sdpi-item>
+    
+    <sdpi-item type="textarea" label="PAT Setup">
+        <details class="message">
+            <summary>Personal Access Token Setup</summary>
+            To create a PAT token:
+            1. Go to Azure DevOps → User Settings → Personal Access Tokens
+            2. Click "New Token"
+            3. Select organization and set expiration
+            4. Select scopes: Release (Read, Write, Execute)
+            5. Click "Create" and copy the token
+        </details>
+    </sdpi-item>
+</body>
+</html>

@@ -4,6 +4,30 @@
 	"Author": "SShadowS",
 	"Actions": [
 		{
+			"Name": "Configuration Manager",
+			"UUID": "com.sshadows.azure-devops-info.configurationmanager",
+			"Icon": "imgs/actions/configuration-manager/icon",
+			"Tooltip": "Manage Azure DevOps connection profiles",
+			"PropertyInspectorPath": "ui/configuration-manager.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/configuration-manager/connected",
+					"TitleAlignment": "middle",
+					"FontSize": 10,
+					"Name": "Connected"
+				},
+				{
+					"Image": "imgs/actions/configuration-manager/disconnected",
+					"TitleAlignment": "middle",
+					"FontSize": 10,
+					"Name": "Disconnected"
+				}
+			]
+		},
+		{
 			"Name": "Pipeline Status",
 			"UUID": "com.sshadows.azure-devops-info.pipelinestatus",
 			"Icon": "imgs/actions/pipeline-status/icon",
@@ -71,6 +95,216 @@
 					"TitleAlignment": "middle",
 					"FontSize": 10,
 					"Name": "Error"
+				}
+			]
+		},
+		{
+			"Name": "Work Item Status",
+			"UUID": "com.sshadows.azure-devops-info.workitemstatus",
+			"Icon": "imgs/actions/work-item-status/icon",
+			"Tooltip": "Display and track Azure DevOps work items",
+			"PropertyInspectorPath": "ui/work-item-status.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/work-item-status/normal",
+					"TitleAlignment": "middle",
+					"FontSize": 10,
+					"Name": "Normal"
+				},
+				{
+					"Image": "imgs/actions/work-item-status/priority",
+					"TitleAlignment": "middle",
+					"FontSize": 10,
+					"Name": "High Priority"
+				},
+				{
+					"Image": "imgs/actions/work-item-status/medium",
+					"TitleAlignment": "middle",
+					"FontSize": 10,
+					"Name": "Medium Priority"
+				}
+			]
+		},
+		{
+			"Name": "Sprint Progress",
+			"UUID": "com.sshadows.azure-devops-info.sprintprogress",
+			"Icon": "imgs/actions/sprint-progress/icon",
+			"Tooltip": "Monitor sprint burndown and progress",
+			"PropertyInspectorPath": "ui/sprint-progress.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/sprint-progress/on-track",
+					"TitleAlignment": "middle",
+					"FontSize": 9,
+					"Name": "On Track"
+				},
+				{
+					"Image": "imgs/actions/sprint-progress/behind",
+					"TitleAlignment": "middle",
+					"FontSize": 9,
+					"Name": "Behind Schedule"
+				},
+				{
+					"Image": "imgs/actions/sprint-progress/warning",
+					"TitleAlignment": "middle",
+					"FontSize": 9,
+					"Name": "Warning"
+				}
+			]
+		},
+		{
+			"Name": "Repository Stats",
+			"UUID": "com.sshadows.azure-devops-info.repositorystats",
+			"Icon": "imgs/actions/repository-stats/icon",
+			"Tooltip": "Display repository activity metrics and statistics",
+			"PropertyInspectorPath": "ui/repository-stats.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/repository-stats/active",
+					"TitleAlignment": "middle",
+					"FontSize": 9,
+					"Name": "Active"
+				},
+				{
+					"Image": "imgs/actions/repository-stats/decreasing",
+					"TitleAlignment": "middle",
+					"FontSize": 9,
+					"Name": "Low Activity"
+				},
+				{
+					"Image": "imgs/actions/repository-stats/stable",
+					"TitleAlignment": "middle",
+					"FontSize": 9,
+					"Name": "Stable"
+				}
+			]
+		},
+		{
+			"Name": "Release Pipeline",
+			"UUID": "com.sshadows.azure-devops-info.releasepipeline",
+			"Icon": "imgs/actions/release-pipeline/icon",
+			"Tooltip": "Monitor deployment pipelines across environments",
+			"PropertyInspectorPath": "ui/release-pipeline.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/release-pipeline/success",
+					"TitleAlignment": "middle",
+					"FontSize": 8,
+					"Name": "Success"
+				},
+				{
+					"Image": "imgs/actions/release-pipeline/inprogress",
+					"TitleAlignment": "middle",
+					"FontSize": 8,
+					"Name": "In Progress"
+				},
+				{
+					"Image": "imgs/actions/release-pipeline/failed",
+					"TitleAlignment": "middle",
+					"FontSize": 8,
+					"Name": "Failed"
+				},
+				{
+					"Image": "imgs/actions/release-pipeline/partial",
+					"TitleAlignment": "middle",
+					"FontSize": 8,
+					"Name": "Partial"
+				},
+				{
+					"Image": "imgs/actions/release-pipeline/notdeployed",
+					"TitleAlignment": "middle",
+					"FontSize": 8,
+					"Name": "Not Deployed"
+				},
+				{
+					"Image": "imgs/actions/release-pipeline/unknown",
+					"TitleAlignment": "middle",
+					"FontSize": 8,
+					"Name": "Unknown"
+				}
+			]
+		},
+		{
+			"Name": "Build Queue",
+			"UUID": "com.sshadows.azure-devops-info.buildqueue",
+			"Icon": "imgs/actions/build-queue/icon",
+			"Tooltip": "Manage build queues and trigger builds",
+			"PropertyInspectorPath": "ui/build-queue.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/build-queue/idle",
+					"TitleAlignment": "middle",
+					"FontSize": 8,
+					"Name": "Idle"
+				},
+				{
+					"Image": "imgs/actions/build-queue/active",
+					"TitleAlignment": "middle",
+					"FontSize": 8,
+					"Name": "Active"
+				},
+				{
+					"Image": "imgs/actions/build-queue/busy",
+					"TitleAlignment": "middle",
+					"FontSize": 8,
+					"Name": "Busy"
+				},
+				{
+					"Image": "imgs/actions/build-queue/normal",
+					"TitleAlignment": "middle",
+					"FontSize": 8,
+					"Name": "Normal"
+				}
+			]
+		},
+		{
+			"Name": "Test Results",
+			"UUID": "com.sshadows.azure-devops-info.testresults",
+			"Icon": "imgs/actions/test-results/icon",
+			"Tooltip": "Display test metrics and failure tracking",
+			"PropertyInspectorPath": "ui/test-results-summary.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/test-results/success",
+					"TitleAlignment": "middle",
+					"FontSize": 9,
+					"Name": "Success"
+				},
+				{
+					"Image": "imgs/actions/test-results/warning",
+					"TitleAlignment": "middle",
+					"FontSize": 9,
+					"Name": "Warning"
+				},
+				{
+					"Image": "imgs/actions/test-results/failure",
+					"TitleAlignment": "middle",
+					"FontSize": 9,
+					"Name": "Failure"
+				},
+				{
+					"Image": "imgs/actions/test-results/critical",
+					"TitleAlignment": "middle",
+					"FontSize": 9,
+					"Name": "Critical"
 				}
 			]
 		}

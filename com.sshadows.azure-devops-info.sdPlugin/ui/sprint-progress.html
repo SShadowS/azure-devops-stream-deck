@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+
+<head lang="en">
+    <title>Sprint Progress Settings</title>
+    <meta charset="utf-8" />
+    <script src="sdpi-components.js"></script>
+</head>
+
+<body>
+    <!--
+        Learn more about property inspector components at https://sdpi-components.dev/docs/components
+    -->
+    
+    <sdpi-heading>Azure DevOps Connection</sdpi-heading>
+    
+    <sdpi-item label="Organization URL">
+        <sdpi-textfield setting="orgUrl" placeholder="https://dev.azure.com/yourorg"></sdpi-textfield>
+    </sdpi-item>
+    
+    <sdpi-item label="Project Name">
+        <sdpi-textfield setting="projectName" placeholder="MyProject"></sdpi-textfield>
+    </sdpi-item>
+    
+    <sdpi-item label="Team Name">
+        <sdpi-select setting="teamName" datasource="getTeams" placeholder="Select team"></sdpi-select>
+    </sdpi-item>
+    
+    <sdpi-item label="Personal Access Token">
+        <sdpi-password setting="pat" placeholder="Enter your PAT"></sdpi-password>
+    </sdpi-item>
+    
+    <sdpi-heading>Sprint Settings</sdpi-heading>
+    
+    <sdpi-item label="Sprint Selection">
+        <sdpi-select setting="sprintSelection" default="current">
+            <option value="current">Current Sprint</option>
+            <option value="next">Next Sprint</option>
+            <option value="specific">Specific Sprint</option>
+        </sdpi-select>
+    </sdpi-item>
+    
+    <sdpi-item label="Specific Sprint">
+        <sdpi-select setting="specificSprint" datasource="getSprints" placeholder="Select sprint"></sdpi-select>
+    </sdpi-item>
+    
+    <sdpi-heading>Display Settings</sdpi-heading>
+    
+    <sdpi-item label="Display Mode">
+        <sdpi-select setting="displayMode" default="burndown">
+            <option value="burndown">Burndown Chart</option>
+            <option value="percentage">Percentage Complete</option>
+            <option value="points">Story Points</option>
+            <option value="tasks">Task Count</option>
+            <option value="detailed">Detailed View</option>
+        </sdpi-select>
+    </sdpi-item>
+    
+    <sdpi-item label="Show Days Remaining">
+        <sdpi-checkbox setting="showDaysRemaining" default="true" label="Display days left in sprint"></sdpi-checkbox>
+    </sdpi-item>
+    
+    <sdpi-item label="Include Weekends">
+        <sdpi-checkbox setting="includeWeekends" default="false" label="Count weekends in burndown"></sdpi-checkbox>
+    </sdpi-item>
+    
+    <sdpi-item label="Warning Threshold">
+        <sdpi-range setting="warningThreshold" min="10" max="50" step="5" default="25" showlabels="true"></sdpi-range>
+    </sdpi-item>
+    
+    <sdpi-item label="Refresh Interval">
+        <sdpi-range setting="refreshInterval" min="60" max="600" step="30" default="300" showlabels="true"></sdpi-range>
+    </sdpi-item>
+    
+    <sdpi-item label="">
+        <sdpi-button value="Test Connection" onclick="$pi.sendToPlugin({event: 'testConnection'})"></sdpi-button>
+    </sdpi-item>
+    
+    <sdpi-item type="textarea" label="Sprint Metrics">
+        <details class="message info">
+            <summary>About Sprint Progress</summary>
+            This action tracks your team's sprint progress with:
+            • Burndown tracking: Shows remaining work vs. ideal trend
+            • Sprint velocity: Historical and current velocity metrics
+            • Work item states: New, Active, Resolved, Done
+            • Days remaining: Working days left in the sprint
+            
+            Status indicators:
+            🟢 Green: On track (>75% of ideal)
+            🟡 Yellow: At risk (50-75% of ideal)
+            🔴 Red: Behind schedule (<50% of ideal)
+        </details>
+    </sdpi-item>
+    
+    <sdpi-item type="textarea" label="PAT Setup">
+        <details class="message">
+            <summary>Personal Access Token Setup</summary>
+            To create a PAT token:
+            1. Go to Azure DevOps → User Settings → Personal Access Tokens
+            2. Click "New Token"
+            3. Select organization and set expiration
+            4. Select scopes: Work Items (Read), Analytics (Read)
+            5. Click "Create" and copy the token
+        </details>
+    </sdpi-item>
+</body>
+</html>

@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <title>Configuration Manager</title>
+    <meta charset="utf-8" />
+    <script src="sdpi-components.js"></script>
+    <style>
+        .profile-card {
+            background: var(--sdpi-background);
+            border: 1px solid var(--sdpi-bordercolor);
+            border-radius: 4px;
+            padding: 8px;
+            margin-bottom: 8px;
+            position: relative;
+        }
+        
+        .profile-card.default {
+            border-color: var(--sdpi-color);
+        }
+        
+        .profile-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+        
+        .profile-name {
+            font-weight: bold;
+            color: var(--sdpi-color);
+        }
+        
+        .profile-details {
+            font-size: 11px;
+            color: var(--sdpi-textalpha);
+            margin: 2px 0;
+        }
+        
+        .profile-actions {
+            display: flex;
+            gap: 4px;
+            margin-top: 8px;
+        }
+        
+        .profile-actions button {
+            flex: 1;
+            padding: 4px 8px;
+            font-size: 11px;
+        }
+        
+        .default-badge {
+            background: var(--sdpi-color);
+            color: var(--sdpi-background);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        
+        .editor-section {
+            display: none;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--sdpi-bordercolor);
+        }
+        
+        .editor-section.active {
+            display: block;
+        }
+        
+        .test-result {
+            margin-top: 8px;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+        
+        .test-result.success {
+            background: rgba(0, 255, 0, 0.1);
+            color: #00ff00;
+        }
+        
+        .test-result.error {
+            background: rgba(255, 0, 0, 0.1);
+            color: #ff0000;
+        }
+        
+        .import-export-section {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--sdpi-bordercolor);
+        }
+        
+        #profileList {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .empty-state {
+            text-align: center;
+            color: var(--sdpi-textalpha);
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <sdpi-heading>Azure DevOps Profiles</sdpi-heading>
+    
+    <!-- Profile List -->
+    <div id="profileList">
+        <div class="empty-state">Loading profiles...</div>
+    </div>
+    
+    <!-- Add New Profile Button -->
+    <sdpi-item label="">
+        <sdpi-button id="addProfileBtn" value="Add New Profile"></sdpi-button>
+    </sdpi-item>
+    
+    <!-- Profile Editor Section -->
+    <div id="profileEditor" class="editor-section">
+        <sdpi-heading id="editorTitle">New Profile</sdpi-heading>
+        
+        <sdpi-item label="Profile Name">
+            <sdpi-textfield id="profileName" placeholder="e.g., Production"></sdpi-textfield>
+        </sdpi-item>
+        
+        <sdpi-item label="Organization URL">
+            <sdpi-textfield id="organizationUrl" placeholder="https://dev.azure.com/yourorg"></sdpi-textfield>
+        </sdpi-item>
+        
+        <sdpi-item label="Project Name">
+            <sdpi-textfield id="projectName" placeholder="MyProject"></sdpi-textfield>
+        </sdpi-item>
+        
+        <sdpi-item label="Personal Access Token">
+            <sdpi-textfield id="personalAccessToken" type="password" placeholder="Enter PAT (leave empty to keep existing)"></sdpi-textfield>
+        </sdpi-item>
+        
+        <sdpi-item label="Set as Default">
+            <sdpi-checkbox id="isDefault"></sdpi-checkbox>
+        </sdpi-item>
+        
+        <sdpi-item label="">
+            <div style="display: flex; gap: 8px;">
+                <sdpi-button id="testConnectionBtn" value="Test Connection" style="flex: 1;"></sdpi-button>
+                <sdpi-button id="saveProfileBtn" value="Save Profile" style="flex: 1;"></sdpi-button>
+                <sdpi-button id="cancelEditBtn" value="Cancel" style="flex: 1;"></sdpi-button>
+            </div>
+        </sdpi-item>
+        
+        <div id="testResult" class="test-result" style="display: none;"></div>
+    </div>
+    
+    <!-- Import/Export Section -->
+    <div class="import-export-section">
+        <sdpi-heading>Import/Export</sdpi-heading>
+        
+        <sdpi-item label="">
+            <div style="display: flex; gap: 8px;">
+                <sdpi-button id="exportBtn" value="Export Profiles" style="flex: 1;"></sdpi-button>
+                <sdpi-button id="importBtn" value="Import Profiles" style="flex: 1;"></sdpi-button>
+            </div>
+        </sdpi-item>
+    </div>
+    
+    <!-- Hidden file input for import -->
+    <input type="file" id="importFile" accept=".json" style="display: none;">
+    
+    <script>
+        let currentEditingProfile = null;
+        let profiles = [];
+        
+        // Initialize when connected to Stream Deck
+        $pi.onConnected((jsn) => {
+            // Request initial profile list
+            $pi.sendToPlugin({ event: 'getProfiles' });
+        });
+        
+        // Handle messages from plugin
+        $pi.onSendToPropertyInspector((jsn) => {
+            const payload = jsn.payload;
+            
+            switch (payload.event) {
+                case 'profileList':
+                case 'profileListUpdated':
+                    updateProfileList(payload.profiles, payload.defaultProfileId);
+                    break;
+                    
+                case 'showProfileEditor':
+                    showProfileEditor(payload.mode, payload.profile);
+                    break;
+                    
+                case 'profileCreated':
+                case 'profileUpdated':
+                    hideProfileEditor();
+                    $pi.sendToPlugin({ event: 'getProfiles' });
+                    break;
+                    
+                case 'profileDeleted':
+                    $pi.sendToPlugin({ event: 'getProfiles' });
+                    break;
+                    
+                case 'connectionTestResult':
+                    showTestResult(payload.result);
+                    break;
+                    
+                case 'profilesExported':
+                    downloadExport(payload.data);
+                    break;
+                    
+                case 'requestPATForImport':
+                    requestPATForImport(payload.profile);
+                    break;
+                    
+                case 'error':
+                    showError(payload.message);
+                    break;
+            }
+        });
+        
+        // Update profile list display
+        function updateProfileList(profileData, defaultProfileId) {
+            profiles = profileData || [];
+            const listContainer = document.getElementById('profileList');
+            
+            if (profiles.length === 0) {
+                listContainer.innerHTML = '<div class="empty-state">No profiles configured. Click "Add New Profile" to get started.</div>';
+                return;
+            }
+            
+            listContainer.innerHTML = profiles.map(profile => `
+                <div class="profile-card ${profile.id === defaultProfileId ? 'default' : ''}" data-profile-id="${profile.id}">
+                    <div class="profile-header">
+                        <span class="profile-name">${profile.name}</span>
+                        ${profile.id === defaultProfileId ? '<span class="default-badge">DEFAULT</span>' : ''}
+                    </div>
+                    <div class="profile-details">Organization: ${profile.organizationUrl}</div>
+                    <div class="profile-details">Project: ${profile.projectName}</div>
+                    <div class="profile-actions">
+                        <button onclick="editProfile('${profile.id}')">Edit</button>
+                        <button onclick="testProfile('${profile.id}')">Test</button>
+                        ${profile.id !== defaultProfileId ? `<button onclick="setDefaultProfile('${profile.id}')">Set Default</button>` : ''}
+                        <button onclick="deleteProfile('${profile.id}')">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // Show profile editor
+        function showProfileEditor(mode, profile) {
+            currentEditingProfile = mode === 'edit' ? profile : null;
+            
+            const editor = document.getElementById('profileEditor');
+            const title = document.getElementById('editorTitle');
+            
+            title.textContent = mode === 'edit' ? 'Edit Profile' : 'New Profile';
+            
+            // Fill form fields
+            document.getElementById('profileName').value = profile?.name || '';
+            document.getElementById('organizationUrl').value = profile?.organizationUrl || '';
+            document.getElementById('projectName').value = profile?.projectName || '';
+            document.getElementById('personalAccessToken').value = ''; // Always empty for security
+            document.getElementById('isDefault').checked = profile?.isDefault || false;
+            
+            // Clear test result
+            const testResult = document.getElementById('testResult');
+            testResult.style.display = 'none';
+            testResult.textContent = '';
+            testResult.className = 'test-result';
+            
+            editor.classList.add('active');
+        }
+        
+        // Hide profile editor
+        function hideProfileEditor() {
+            const editor = document.getElementById('profileEditor');
+            editor.classList.remove('active');
+            currentEditingProfile = null;
+        }
+        
+        // Show test result
+        function showTestResult(result) {
+            const testResult = document.getElementById('testResult');
+            
+            if (result.success) {
+                testResult.textContent = `✓ Connection successful! Connected to ${result.details?.organizationName || 'Azure DevOps'}`;
+                testResult.className = 'test-result success';
+            } else {
+                testResult.textContent = `✗ Connection failed: ${result.error || 'Unknown error'}`;
+                testResult.className = 'test-result error';
+            }
+            
+            testResult.style.display = 'block';
+        }
+        
+        // Show error message
+        function showError(message) {
+            const testResult = document.getElementById('testResult');
+            testResult.textContent = `✗ Error: ${message}`;
+            testResult.className = 'test-result error';
+            testResult.style.display = 'block';
+            
+            // Also show in console for debugging
+            console.error('Configuration Manager Error:', message);
+        }
+        
+        // Profile actions
+        function editProfile(profileId) {
+            $pi.sendToPlugin({ event: 'editProfile', profileId: profileId });
+        }
+        
+        function testProfile(profileId) {
+            $pi.sendToPlugin({ event: 'testConnection', profileId: profileId });
+        }
+        
+        function deleteProfile(profileId) {
+            if (confirm('Are you sure you want to delete this profile?')) {
+                $pi.sendToPlugin({ event: 'deleteProfile', profileId: profileId });
+            }
+        }
+        
+        function setDefaultProfile(profileId) {
+            $pi.sendToPlugin({ event: 'setDefaultProfile', profileId: profileId });
+        }
+        
+        // Export profiles
+        function downloadExport(data) {
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `azure-devops-profiles-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        // Request PAT for import
+        function requestPATForImport(profile) {
+            const pat = prompt(`Enter Personal Access Token for profile "${profile.name}" (${profile.organizationUrl}):`);
+            if (pat) {
+                profile.personalAccessToken = pat;
+                $pi.sendToPlugin({ event: 'saveProfile', profile: profile });
+            }
+        }
+        
+        // Button event handlers
+        document.getElementById('addProfileBtn').addEventListener('click', () => {
+            showProfileEditor('add', null);
+        });
+        
+        document.getElementById('saveProfileBtn').addEventListener('click', () => {
+            const profile = {
+                name: document.getElementById('profileName').value,
+                organizationUrl: document.getElementById('organizationUrl').value,
+                projectName: document.getElementById('projectName').value,
+                personalAccessToken: document.getElementById('personalAccessToken').value,
+                isDefault: document.getElementById('isDefault').checked
+            };
+            
+            if (currentEditingProfile) {
+                profile.id = currentEditingProfile.id;
+            }
+            
+            // Validate required fields
+            if (!profile.name || !profile.organizationUrl || !profile.projectName) {
+                showError('Please fill in all required fields');
+                return;
+            }
+            
+            // For new profiles, PAT is required
+            if (!currentEditingProfile && !profile.personalAccessToken) {
+                showError('Personal Access Token is required for new profiles');
+                return;
+            }
+            
+            $pi.sendToPlugin({ event: 'saveProfile', profile: profile });
+        });
+        
+        document.getElementById('cancelEditBtn').addEventListener('click', () => {
+            hideProfileEditor();
+        });
+        
+        document.getElementById('testConnectionBtn').addEventListener('click', () => {
+            const profile = {
+                organizationUrl: document.getElementById('organizationUrl').value,
+                projectName: document.getElementById('projectName').value,
+                personalAccessToken: document.getElementById('personalAccessToken').value
+            };
+            
+            // For existing profiles being edited, use the profile ID if no new PAT provided
+            if (currentEditingProfile && !profile.personalAccessToken) {
+                $pi.sendToPlugin({ event: 'testConnection', profileId: currentEditingProfile.id });
+            } else {
+                // Validate fields for new connection test
+                if (!profile.organizationUrl || !profile.projectName || !profile.personalAccessToken) {
+                    showError('Please fill in all fields to test connection');
+                    return;
+                }
+                
+                $pi.sendToPlugin({ event: 'testConnection', profile: profile });
+            }
+        });
+        
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            $pi.sendToPlugin({ event: 'exportProfiles' });
+        });
+        
+        document.getElementById('importBtn').addEventListener('click', () => {
+            document.getElementById('importFile').click();
+        });
+        
+        document.getElementById('importFile').addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = e.target.result;
+                        $pi.sendToPlugin({ event: 'importProfiles', data: data });
+                    } catch (error) {
+                        showError('Failed to read import file');
+                    }
+                };
+                reader.readAsText(file);
+            }
+            // Reset input
+            event.target.value = '';
+        });
+    </script>
+</body>
+</html>

@@ -1,6 +1,7 @@
-import streamDeck, { action, SingletonAction, WillAppearEvent, KeyDownEvent, DidReceiveSettingsEvent, WillDisappearEvent, SendToPluginEvent } from '@elgato/streamdeck';
+import streamDeck, { action, SingletonAction, WillAppearEvent, KeyDownEvent, DidReceiveSettingsEvent, WillDisappearEvent, SendToPluginEvent, JsonValue } from '@elgato/streamdeck';
 import { AzureDevOpsClient, AzureDevOpsConfig } from '../services/azure-devops-client';
 import { AzureDevOpsConnectionPool } from '../services/connection-pool';
+import { ProfileManager } from '../services/profile-manager';
 import { ErrorRecoveryService } from '../services/error-recovery';
 import { PipelineService, PipelineStatus, PipelineInfo } from '../services/pipeline-service';
 import { StatusDisplayManager, DisplayOptions } from '../utils/status-display';
@@ -17,6 +18,7 @@ import {
 @action({ UUID: 'com.sshadows.azure-devops-info.pipelinestatus' })
 export class PipelineStatusAction extends SingletonAction<PipelineStatusSettings> {
     private connectionPool: AzureDevOpsConnectionPool;
+    private profileManager: ProfileManager;
     private errorRecovery: ErrorRecoveryService;
     private stateManager: ActionStateManager;
     private settingsManager: SettingsManager;
@@ -31,6 +33,7 @@ export class PipelineStatusAction extends SingletonAction<PipelineStatusSettings
     constructor() {
         super();
         this.connectionPool = AzureDevOpsConnectionPool.getInstance();
+        this.profileManager = ProfileManager.getInstance();
         this.errorRecovery = new ErrorRecoveryService();
         this.stateManager = new ActionStateManager();
         this.settingsManager = new SettingsManager();
@@ -40,13 +43,19 @@ export class PipelineStatusAction extends SingletonAction<PipelineStatusSettings
     override async onWillAppear(ev: WillAppearEvent<PipelineStatusSettings>): Promise<void> {
         this.logger.debug('Pipeline status action appearing', { action: ev.action.id });
         
+        // Initialize ProfileManager
+        await this.profileManager.initialize();
+        
+        // Check for legacy settings and migrate if necessary
+        const settings = await this.migrateSettingsIfNeeded(ev.action, ev.payload.settings);
+        
         // Initialize state for this action
         this.stateManager.resetConnectionAttempts(ev.action.id);
         
         // Store initial settings in state manager
-        this.stateManager.getState(ev.action.id).lastSettings = ev.payload.settings;
+        this.stateManager.getState(ev.action.id).lastSettings = settings;
         
-        await this.initializeAction(ev.action.id, ev.payload.settings);
+        await this.initializeAction(ev.action.id, settings);
     }
 
     override async onWillDisappear(ev: WillDisappearEvent<PipelineStatusSettings>): Promise<void> {
@@ -60,13 +69,16 @@ export class PipelineStatusAction extends SingletonAction<PipelineStatusSettings
         
         // Release connection from pool
         const settings = ev.payload.settings;
-        if (this.isConfigured(settings)) {
+        if (settings.profileId) {
+            this.connectionPool.releaseProfileConnection(settings.profileId);
+        } else if (this.isConfigured(settings)) {
+            // Legacy connection release
             const config = this.createConfig(settings);
             this.connectionPool.releaseConnection(config);
-            
-            // Remove pipeline service
-            this.pipelineServices.delete(ev.action.id);
         }
+        
+        // Remove pipeline service
+        this.pipelineServices.delete(ev.action.id);
         
         // Clear all state for this action
         this.stateManager.clearState(ev.action.id);
@@ -184,15 +196,31 @@ export class PipelineStatusAction extends SingletonAction<PipelineStatusSettings
         await this.initializeAction(actionId, settings);
     }
 
-    override async onSendToPlugin(ev: SendToPluginEvent<any, PipelineStatusSettings>): Promise<void> {
+    override async onSendToPlugin(ev: SendToPluginEvent<JsonValue, PipelineStatusSettings>): Promise<void> {
+        const payload = ev.payload as any;
         this.logger.trace('Pipeline status received message from PI', { 
             actionId: ev.action.id, 
-            payload: ev.payload
+            payload: payload
         });
         
-        // Currently no data source requests needed for Pipeline Status
-        // All settings are handled automatically by SDPI Components
-        this.logger.debug('No specific message handling needed for Pipeline Status');
+        if (!payload?.event) {
+            return;
+        }
+
+        switch (payload.event) {
+            case 'getProfiles':
+                await this.sendProfileList();
+                break;
+                
+            case 'openConfigManager':
+                // Open the configuration manager (could open Stream Deck app or show a message)
+                this.logger.info('User requested to open Configuration Manager');
+                await ev.action.showAlert();
+                break;
+                
+            default:
+                this.logger.debug('Unknown event from Property Inspector', { event: payload.event });
+        }
     }
 
 
@@ -251,16 +279,27 @@ export class PipelineStatusAction extends SingletonAction<PipelineStatusSettings
     }
 
     private async connectToAzureDevOps(actionId: string, settings: PipelineStatusSettings): Promise<void> {
-        const config = this.createConfig(settings);
+        let client: AzureDevOpsClient | null = null;
         
-        // Get connection from pool
-        const client = await this.connectionPool.getConnection(config);
+        if (settings.profileId) {
+            // Use profile-based connection
+            client = await this.connectionPool.getConnectionByProfile(settings.profileId);
+            if (!client) {
+                throw new Error('Failed to get connection from profile');
+            }
+        } else if (this.isConfigured(settings)) {
+            // Use legacy connection for backward compatibility
+            const config = this.createConfig(settings);
+            client = await this.connectionPool.getConnection(config);
+        } else {
+            throw new Error('No valid connection configuration');
+        }
         
         // Create pipeline service for this action
         const pipelineService = new PipelineService(client);
         this.pipelineServices.set(actionId, pipelineService);
         
-        this.logger.info('Connected to Azure DevOps', { actionId });
+        this.logger.info('Connected to Azure DevOps', { actionId, usingProfile: !!settings.profileId });
     }
 
     private async startPolling(actionId: string, settings: PipelineStatusSettings): Promise<void> {
@@ -412,6 +451,87 @@ export class PipelineStatusAction extends SingletonAction<PipelineStatusSettings
     }
 
     private hasConfigChanged(oldSettings: PipelineStatusSettings, newSettings: PipelineStatusSettings): boolean {
+        // Check if profile changed
+        if (oldSettings.profileId !== newSettings.profileId) {
+            return true;
+        }
+        
+        // Check legacy config changes
         return this.settingsManager.requiresReconnection(oldSettings, newSettings);
     }
+
+    /**
+     * Migrate legacy settings to use profiles if needed
+     */
+    private async migrateSettingsIfNeeded(action: any, settings: PipelineStatusSettings): Promise<PipelineStatusSettings> {
+        // If already using profile, no migration needed
+        if (settings.profileId) {
+            return settings;
+        }
+        
+        // Check if we have legacy settings to migrate
+        if (settings.organizationUrl && settings.personalAccessToken) {
+            this.logger.info('Migrating legacy settings to profile', { actionId: action.id });
+            
+            try {
+                const migrationResult = await this.profileManager.migrateFromLegacySettings({
+                    organizationUrl: settings.organizationUrl,
+                    projectName: settings.projectName,
+                    personalAccessToken: settings.personalAccessToken
+                });
+                
+                // Update settings to use the profile
+                const newSettings: PipelineStatusSettings = {
+                    ...settings,
+                    profileId: migrationResult.profileId,
+                    // Clear legacy fields
+                    organizationUrl: undefined,
+                    projectName: undefined,
+                    personalAccessToken: undefined
+                };
+                
+                // Save the updated settings
+                await action.setSettings(newSettings);
+                
+                this.logger.info('Successfully migrated to profile', { 
+                    profileId: migrationResult.profileId,
+                    profileName: migrationResult.profileName
+                });
+                
+                return newSettings;
+            } catch (error) {
+                this.logger.error('Failed to migrate settings', error);
+                // Return original settings if migration fails
+                return settings;
+            }
+        }
+        
+        return settings;
+    }
+
+    /**
+     * Send profile list to Property Inspector
+     */
+    private async sendProfileList(): Promise<void> {
+        try {
+            const profiles = await this.profileManager.getAllProfiles();
+            const defaultProfile = await this.profileManager.getDefaultProfile();
+            
+            const profileList = profiles.map(profile => ({
+                id: profile.id,
+                name: profile.name,
+                isDefault: profile.id === defaultProfile?.id
+            }));
+            
+            await streamDeck.ui.current?.sendToPropertyInspector({
+                event: 'profileList',
+                profiles: profileList
+            });
+            
+            this.logger.debug(`Sent ${profileList.length} profiles to Property Inspector`);
+        } catch (error) {
+            this.logger.error('Failed to send profile list', error);
+        }
+    }
+
 }

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+
+<head lang="en">
+    <title>Repository Stats Settings</title>
+    <meta charset="utf-8" />
+    <script src="sdpi-components.js"></script>
+</head>
+
+<body>
+    <!--
+        Learn more about property inspector components at https://sdpi-components.dev/docs/components
+    -->
+    
+    <sdpi-item label="Organization URL">
+        <sdpi-textfield setting="orgUrl" placeholder="https://dev.azure.com/yourorg"></sdpi-textfield>
+    </sdpi-item>
+    
+    <sdpi-item label="Project Name">
+        <sdpi-textfield setting="projectName" placeholder="MyProject"></sdpi-textfield>
+    </sdpi-item>
+    
+    <sdpi-item label="Repository">
+        <sdpi-select setting="repositoryName" datasource="getRepositories" placeholder="Select repository"></sdpi-select>
+    </sdpi-item>
+    
+    <sdpi-item label="Branch (Optional)">
+        <sdpi-select setting="branch" datasource="getBranches" placeholder="Default branch"></sdpi-select>
+    </sdpi-item>
+    
+    <sdpi-item label="Personal Access Token">
+        <sdpi-password setting="pat" placeholder="Enter PAT token"></sdpi-password>
+    </sdpi-item>
+    
+    <sdpi-item label="">
+        <sdpi-button value="Test Connection" onclick="$pi.sendToPlugin({event: 'testConnection'})"></sdpi-button>
+    </sdpi-item>
+    
+    <sdpi-heading>Display Settings</sdpi-heading>
+    
+    <sdpi-item label="Display Mode">
+        <sdpi-select setting="displayMode" default="commits">
+            <option value="commits">Commit Activity</option>
+            <option value="contributors">Contributors</option>
+            <option value="activity">Repository Activity</option>
+            <option value="prs">Pull Requests</option>
+            <option value="detailed">Detailed View</option>
+        </sdpi-select>
+    </sdpi-item>
+    
+    <sdpi-item label="Time Range">
+        <sdpi-select setting="timeRange" default="week">
+            <option value="today">Today</option>
+            <option value="week">This Week</option>
+            <option value="month">This Month</option>
+        </sdpi-select>
+    </sdpi-item>
+    
+    <sdpi-item label="Show Trend Indicator">
+        <sdpi-checkbox setting="showTrend" default="true" label="Display activity trend icon"></sdpi-checkbox>
+    </sdpi-item>
+    
+    <sdpi-item label="Refresh Interval">
+        <sdpi-range setting="refreshInterval" min="60" max="600" step="30" default="300" showlabels="true"></sdpi-range>
+    </sdpi-item>
+    
+    <sdpi-item type="textarea" label="Repository Stats Info">
+        <details class="message info">
+            <summary>About Repository Stats</summary>
+            This action displays various metrics about your Azure DevOps repository including:
+            • Commit Activity: Number of commits over time
+            • Contributors: Active contributors and top committers
+            • Repository Activity: Overall activity trends and branch health
+            • Pull Requests: Open PRs and merge statistics
+            • Detailed View: Combined metrics overview
+            
+            The button color indicates activity trend:
+            🟢 Green: Increasing activity
+            🔵 Blue: Stable activity
+            🟡 Yellow: Decreasing activity
+        </details>
+    </sdpi-item>
+    
+    <sdpi-item type="textarea" label="PAT Setup">
+        <details class="message">
+            <summary>Personal Access Token Setup</summary>
+            To create a PAT token:
+            1. Go to Azure DevOps → User Settings → Personal Access Tokens
+            2. Click "New Token"
+            3. Select organization and set expiration
+            4. Select scopes: Code (Read), Work Items (Read)
+            5. Click "Create" and copy the token
+        </details>
+    </sdpi-item>
+</body>
+</html>

@@ -2,6 +2,7 @@ import { Logger } from '@elgato/streamdeck';
 import * as azdev from 'azure-devops-node-api';
 import { IBuildApi } from 'azure-devops-node-api/BuildApi';
 import { ITaskAgentApi } from 'azure-devops-node-api/TaskAgentApi';
+import { IBuildQueueService } from '../interfaces';
 import { 
     Build, 
     BuildDefinition,
@@ -72,7 +73,7 @@ export interface BuildParameters {
     sourceBuildId?: number;
 }
 
-export class BuildQueueService {
+export class BuildQueueService implements IBuildQueueService {
     private client: AzureDevOpsClient;
     private logger: Logger;
     private buildApi: IBuildApi | null = null;
@@ -85,7 +86,17 @@ export class BuildQueueService {
         this.client = new AzureDevOpsClient();
     }
 
-    async getQueueMetrics(settings: BuildQueueSettings): Promise<BuildQueueMetrics> {
+    async getQueueMetrics(settings: {
+        orgUrl: string;
+        projectName: string;
+        pat: string;
+        poolId?: number;
+        definitionId?: number;
+        poolName?: string;
+        buildDefinitionId?: number;
+        buildDefinitionName?: string;
+        branch?: string;
+    }): Promise<any> {
         const cacheKey = this.getCacheKey(settings);
         const cached = this.cache.get(cacheKey);
         
@@ -137,9 +148,37 @@ export class BuildQueueService {
         }
     }
 
-    async queueBuild(settings: BuildQueueSettings, parameters?: BuildParameters): Promise<Build> {
+    // Overload to match interface
+    async queueBuild(settings: any, definitionId: number, sourceBranch?: string, parameters?: Record<string, string>): Promise<any>;
+    async queueBuild(settings: BuildQueueSettings, parameters?: BuildParameters): Promise<Build>;
+    async queueBuild(
+        settings: any, 
+        definitionIdOrParameters?: number | BuildParameters, 
+        sourceBranch?: string, 
+        parameters?: Record<string, string>
+    ): Promise<Build> {
+        // Handle both signatures
+        let actualSettings: BuildQueueSettings;
+        let actualParameters: BuildParameters | undefined;
+        
+        if (typeof definitionIdOrParameters === 'number') {
+            // Interface signature
+            actualSettings = {
+                ...settings,
+                buildDefinitionId: definitionIdOrParameters,
+                branch: sourceBranch
+            };
+            actualParameters = {
+                branch: sourceBranch,
+                variables: parameters
+            };
+        } else {
+            // Original signature
+            actualSettings = settings as BuildQueueSettings;
+            actualParameters = definitionIdOrParameters;
+        }
         try {
-            await this.ensureConnection(settings);
+            await this.ensureConnection(actualSettings);
             
             if (!this.buildApi) {
                 throw new Error('Build API not initialized');
@@ -148,15 +187,15 @@ export class BuildQueueService {
             // Get build definition
             let definition: BuildDefinition | undefined;
             
-            if (settings.buildDefinitionId) {
+            if (actualSettings.buildDefinitionId) {
                 definition = await this.buildApi.getDefinition(
-                    settings.projectName,
-                    settings.buildDefinitionId
+                    actualSettings.projectName,
+                    actualSettings.buildDefinitionId
                 );
-            } else if (settings.buildDefinitionName) {
+            } else if (actualSettings.buildDefinitionName) {
                 const definitions = await this.buildApi.getDefinitions(
-                    settings.projectName,
-                    settings.buildDefinitionName
+                    actualSettings.projectName,
+                    actualSettings.buildDefinitionName
                 );
                 definition = definitions?.[0];
             }
@@ -173,14 +212,14 @@ export class BuildQueueService {
                 project: {
                     id: definition.project?.id
                 },
-                sourceBranch: parameters?.branch || settings.branch || definition.repository?.defaultBranch,
+                sourceBranch: actualParameters?.branch || actualSettings.branch || definition.repository?.defaultBranch,
                 reason: BuildReason.Manual,
                 priority: QueuePriority.Normal,
-                parameters: parameters?.variables ? JSON.stringify(parameters.variables) : undefined
+                parameters: actualParameters?.variables ? JSON.stringify(actualParameters.variables) : undefined
             };
 
             // Queue the build
-            const queuedBuild = await this.buildApi.queueBuild(build, settings.projectName);
+            const queuedBuild = await this.buildApi.queueBuild(build, actualSettings.projectName);
             
             this.logger.info(`Build queued successfully: ${queuedBuild.buildNumber}`);
             
@@ -194,7 +233,7 @@ export class BuildQueueService {
         }
     }
 
-    async cancelBuild(settings: BuildQueueSettings, buildId: number): Promise<void> {
+    async cancelBuild(settings: any, buildId: number): Promise<void> {
         try {
             await this.ensureConnection(settings);
             
@@ -220,7 +259,7 @@ export class BuildQueueService {
         }
     }
 
-    async retryBuild(settings: BuildQueueSettings, buildId: number): Promise<Build> {
+    async retryBuild(settings: any, buildId: number): Promise<any> {
         try {
             await this.ensureConnection(settings);
             
@@ -260,7 +299,7 @@ export class BuildQueueService {
         }
     }
 
-    private async getRunningBuilds(settings: BuildQueueSettings): Promise<BuildInfo[]> {
+    private async getRunningBuilds(settings: any): Promise<BuildInfo[]> {
         if (!this.buildApi) {
             return [];
         }
@@ -293,7 +332,7 @@ export class BuildQueueService {
         }
     }
 
-    private async getQueuedBuilds(settings: BuildQueueSettings): Promise<BuildInfo[]> {
+    private async getQueuedBuilds(settings: any): Promise<BuildInfo[]> {
         if (!this.buildApi) {
             return [];
         }
@@ -333,7 +372,7 @@ export class BuildQueueService {
         }
     }
 
-    private async getRecentBuilds(settings: BuildQueueSettings): Promise<BuildInfo[]> {
+    private async getRecentBuilds(settings: any): Promise<BuildInfo[]> {
         if (!this.buildApi) {
             return [];
         }
@@ -366,7 +405,7 @@ export class BuildQueueService {
         }
     }
 
-    private async getAgentPoolStatus(settings: BuildQueueSettings): Promise<AgentPoolStatus> {
+    private async getAgentPoolStatus(settings: any): Promise<AgentPoolStatus> {
         if (!this.taskAgentApi) {
             return {
                 poolName: 'Unknown',
@@ -520,7 +559,7 @@ export class BuildQueueService {
         return buildsPerAgent * averageBuildTime;
     }
 
-    private async ensureConnection(settings: BuildQueueSettings): Promise<void> {
+    private async ensureConnection(settings: any): Promise<void> {
         await this.client.connect({
             organizationUrl: settings.orgUrl,
             personalAccessToken: settings.pat,
@@ -536,8 +575,8 @@ export class BuildQueueService {
         }
     }
 
-    private getCacheKey(settings: BuildQueueSettings): string {
-        const defId = settings.buildDefinitionId || settings.buildDefinitionName || 'all';
+    private getCacheKey(settings: any): string {
+        const defId = settings.buildDefinitionId || settings.definitionId || settings.buildDefinitionName || 'all';
         return `${settings.orgUrl}_${settings.projectName}_${defId}`;
     }
 

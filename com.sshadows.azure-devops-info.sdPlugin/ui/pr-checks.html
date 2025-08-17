@@ -8,21 +8,21 @@
 </head>
 
 <body>
-    <!--
-        Learn more about property inspector components at https://sdpi-components.dev/docs/components
-    -->
+    <!-- Profile Selection Section -->
+    <sdpi-heading>Azure DevOps Configuration</sdpi-heading>
     
-    <sdpi-item label="Organization URL">
-        <sdpi-textfield setting="organizationUrl" placeholder="https://dev.azure.com/yourorg"></sdpi-textfield>
+    <sdpi-item label="Configuration Profile">
+        <sdpi-select setting="profileId" datasource="getProfiles" placeholder="Select a profile...">
+            <option value="">Select Profile...</option>
+        </sdpi-select>
     </sdpi-item>
     
-    <sdpi-item label="Project Name">
-        <sdpi-textfield setting="projectName" placeholder="MyProject"></sdpi-textfield>
+    <sdpi-item label="">
+        <sdpi-button value="Manage Profiles" onclick="$pi.sendToPlugin({event: 'openConfigManager'})"></sdpi-button>
     </sdpi-item>
     
-    <sdpi-item label="Personal Access Token">
-        <sdpi-textfield setting="personalAccessToken" type="password" placeholder="Your PAT token"></sdpi-textfield>
-    </sdpi-item>
+    <!-- PR Settings Section -->
+    <sdpi-heading>Pull Request Settings</sdpi-heading>
     
     <sdpi-item label="Repository">
         <sdpi-select setting="repository" default="all" datasource="getRepositories" loading="Fetching repositories..." placeholder="Please select">
@@ -33,11 +33,23 @@
         <sdpi-textfield setting="targetBranch" placeholder="main, develop, or refs/heads/main"></sdpi-textfield>
     </sdpi-item>
     
-    <sdpi-item label="Filter Options">
-        <sdpi-checkbox setting="showOnlyMyPRs" default="false">Show only my PRs</sdpi-checkbox>
-        <sdpi-checkbox setting="showPRsImReviewing" default="false">Show PRs I'm reviewing</sdpi-checkbox>
-        <sdpi-checkbox setting="showConflictsOnly" default="false">Show only PRs with conflicts</sdpi-checkbox>
+    <!-- Filter Options Section -->
+    <sdpi-heading>Filter Options</sdpi-heading>
+    
+    <sdpi-item label="Show only my PRs">
+        <sdpi-checkbox setting="showOnlyMyPRs" default="false"></sdpi-checkbox>
     </sdpi-item>
+    
+    <sdpi-item label="Show PRs I'm reviewing">
+        <sdpi-checkbox setting="showPRsImReviewing" default="false"></sdpi-checkbox>
+    </sdpi-item>
+    
+    <sdpi-item label="Show only PRs with conflicts">
+        <sdpi-checkbox setting="showConflictsOnly" default="false"></sdpi-checkbox>
+    </sdpi-item>
+    
+    <!-- Display Options Section -->
+    <sdpi-heading>Display Options</sdpi-heading>
     
     <sdpi-item label="Refresh Interval">
         <sdpi-range setting="refreshInterval" min="30" max="300" step="30" default="60" showlabels>
@@ -45,7 +57,7 @@
         </sdpi-range>
     </sdpi-item>
     
-    <sdpi-item label="Display Options">
+    <sdpi-item label="Display Format">
         <sdpi-select setting="displayFormat" default="both">
             <option value="icon">Icon Only</option>
             <option value="text">Text Only</option>
@@ -56,6 +68,37 @@
     <sdpi-item label="Show PR Count">
         <sdpi-checkbox setting="showPRCount" default="true"></sdpi-checkbox>
     </sdpi-item>
+    
+    <script>
+        // Handle messages from plugin
+        $pi.onSendToPropertyInspector((jsn) => {
+            const payload = jsn.payload;
+            
+            if (payload.event === 'profileList') {
+                // Update profile dropdown
+                const select = document.querySelector('[setting="profileId"]');
+                if (select && payload.profiles) {
+                    // Clear existing options except the first placeholder
+                    while (select.options.length > 1) {
+                        select.remove(1);
+                    }
+                    
+                    // Add profile options
+                    payload.profiles.forEach(profile => {
+                        const option = document.createElement('option');
+                        option.value = profile.id;
+                        option.text = profile.name + (profile.isDefault ? ' (Default)' : '');
+                        select.add(option);
+                    });
+                }
+            }
+        });
+        
+        // Request profiles when Property Inspector loads
+        $pi.onConnected((jsn) => {
+            $pi.sendToPlugin({ event: 'getProfiles' });
+        });
+    </script>
 </body>
 
 </html>

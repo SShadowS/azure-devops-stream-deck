@@ -59,6 +59,8 @@
         "@azure/core-auth": "^1.10.0",
         "@azure/identity": "^4.11.1",
         "@elgato/streamdeck": "^1.0.0",
-        "azure-devops-node-api": "^15.1.1"
+        "@types/uuid": "^10.0.0",
+        "azure-devops-node-api": "^15.1.1",
+        "uuid": "^11.1.0"
     }
 }

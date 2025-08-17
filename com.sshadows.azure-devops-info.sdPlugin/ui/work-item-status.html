@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+
+<head lang="en">
+    <title>Work Item Status Settings</title>
+    <meta charset="utf-8" />
+    <script src="sdpi-components.js"></script>
+</head>
+
+<body>
+    <!--
+        Learn more about property inspector components at https://sdpi-components.dev/docs/components
+    -->
+    
+    <sdpi-heading>Azure DevOps Connection</sdpi-heading>
+    
+    <sdpi-item label="Organization URL">
+        <sdpi-textfield setting="orgUrl" placeholder="https://dev.azure.com/yourorg"></sdpi-textfield>
+    </sdpi-item>
+    
+    <sdpi-item label="Project Name">
+        <sdpi-textfield setting="projectName" placeholder="MyProject"></sdpi-textfield>
+    </sdpi-item>
+    
+    <sdpi-item label="Personal Access Token">
+        <sdpi-password setting="pat" placeholder="Enter your PAT"></sdpi-password>
+    </sdpi-item>
+    
+    <sdpi-heading>Work Item Query</sdpi-heading>
+    
+    <sdpi-item label="Query Type">
+        <sdpi-select setting="queryType" default="assigned">
+            <option value="assigned">Assigned to me</option>
+            <option value="created">Created by me</option>
+            <option value="mentioned">Mentioned me</option>
+            <option value="query">Custom query</option>
+        </sdpi-select>
+    </sdpi-item>
+    
+    <sdpi-item label="Assigned To">
+        <sdpi-textfield setting="assignedTo" placeholder="@Me or username"></sdpi-textfield>
+    </sdpi-item>
+    
+    <sdpi-item label="Work Item Types">
+        <sdpi-select setting="workItemTypes" datasource="getWorkItemTypes" multiple="true" placeholder="All types"></sdpi-select>
+    </sdpi-item>
+    
+    <sdpi-item label="States">
+        <sdpi-select setting="states" multiple="true" default="">
+            <option value="">All states</option>
+            <option value="New">New</option>
+            <option value="Active">Active</option>
+            <option value="Resolved">Resolved</option>
+            <option value="Closed">Closed</option>
+            <option value="Done">Done</option>
+            <option value="Removed">Removed</option>
+        </sdpi-select>
+    </sdpi-item>
+    
+    <sdpi-item label="Include Completed">
+        <sdpi-checkbox setting="includeCompleted" default="false" label="Show closed/done items"></sdpi-checkbox>
+    </sdpi-item>
+    
+    <sdpi-item label="Max Items">
+        <sdpi-range setting="maxItems" min="1" max="20" default="10" showlabels="true"></sdpi-range>
+    </sdpi-item>
+    
+    <sdpi-item label="Custom Query">
+        <sdpi-textarea setting="customQuery" placeholder="Enter WIQL query" rows="3"></sdpi-textarea>
+    </sdpi-item>
+    
+    <sdpi-heading>Display Settings</sdpi-heading>
+    
+    <sdpi-item label="Display Mode">
+        <sdpi-select setting="displayMode" default="count">
+            <option value="count">Item count</option>
+            <option value="list">Title list</option>
+            <option value="detailed">Detailed view</option>
+        </sdpi-select>
+    </sdpi-item>
+    
+    <sdpi-item label="Show Priority">
+        <sdpi-checkbox setting="showPriority" default="true" label="Color by priority"></sdpi-checkbox>
+    </sdpi-item>
+    
+    <sdpi-item label="Refresh Interval">
+        <sdpi-range setting="refreshInterval" min="30" max="300" step="30" default="60" showlabels="true"></sdpi-range>
+    </sdpi-item>
+    
+    <sdpi-item label="">
+        <sdpi-button value="Test Connection" onclick="$pi.sendToPlugin({event: 'testConnection'})"></sdpi-button>
+    </sdpi-item>
+    
+    <sdpi-item type="textarea" label="Help">
+        <details class="message info">
+            <summary>About Work Item Status</summary>
+            Personal Access Token: Create a PAT in Azure DevOps with Work Items (Read) permissions.
+            Query Type: Choose how to filter work items.
+            Display Mode: How to show work items on the button.
+            Priority Colors: Red for P1, Yellow for P2, Blue for P3+.
+        </details>
+    </sdpi-item>
+</body>
+</html>
